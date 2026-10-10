@@ -1,45 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-    <title>Control Hidropónico NFT</title>
-    <!-- Firebase SDK (Versión 8 por simplicidad) -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Hidropónico NFT - Fresas</title>
+    <!-- Firebase SDK (Versión 8) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
     <style>
         body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px;}
-        .tarjeta { background: white; padding: 20px; margin: 10px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; width: 250px;}
-        button { padding: 10px 20px; margin-top: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px;}
-        .encendido { background-color: #4CAF50; color: white; }
-        .apagado { background-color: #f44336; color: white; }
+        .contenedor { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
+        .tarjeta { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); width: 280px; text-align: left;}
+        .tarjeta h2 { text-align: center; color: #333; margin-top: 0; }
+        .dato { font-size: 18px; margin: 10px 0; font-weight: bold; color: #007BFF; }
+        button { padding: 12px; margin-top: 8px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; width: 100%; font-weight: bold; transition: 0.3s;}
+        .encendido { background-color: #28a745; color: white; }
+        .apagado { background-color: #dc3545; color: white; }
     </style>
 </head>
 <body>
 
-    <h1>Panel Hidropónico de Fresas</h1>
+    <h1>Panel de Control Hidropónico NFT</h1>
 
-    <div class="tarjeta">
-        <h2>Sensores</h2>
-        <p>Temp 1: <span id="val_temp1">--</span> °C</p>
-        <p>Temp 2: <span id="val_temp2">--</span> °C</p>
-        <p>pH: <span id="val_ph">--</span></p>
-        <p>Nivel: <span id="val_nivel">--</span> %</p>
-    </div>
+    <div class="contenedor">
+        <!-- Tarjeta de Sensores -->
+        <div class="tarjeta">
+            <h2>Sensores</h2>
+            <p>Temp. Solución (T1): <span id="val_temp1" class="dato">--</span> °C</p>
+            <p>Temp. Ambiente (T2): <span id="val_temp2" class="dato">--</span> °C</p>
+            <p>pH: <span id="val_ph" class="dato">--</span></p>
+            <p>Nutrientes (TDS): <span id="val_tds" class="dato">--</span> ppm</p>
+            <p>Nivel Tanque: <span id="val_nivel" class="dato">--</span> cm</p>
+            <p>Caudal de Agua: <span id="val_flujo" class="dato">--</span> L/min</p>
+        </div>
 
-    <div class="tarjeta">
-        <h2>Bombas</h2>
-        <button id="btn_bomba1" class="apagado" onclick="toggleBomba('Bomba1')">Bomba 1</button><br>
-        <button id="btn_bomba2" class="apagado" onclick="toggleBomba('Bomba2')">Bomba 2</button><br>
-        <button id="btn_bomba3" class="apagado" onclick="toggleBomba('Bomba3')">Bomba 3</button>
+        <!-- Tarjeta de Actuadores / Bombas -->
+        <div class="tarjeta">
+            <h2>Control de Actuadores</h2>
+            <label>Bomba Peristáltica 1 (pH Up):</label>
+            <button id="btn_bomba1" class="apagado" onclick="toggleBomba('Bomba1')">BOMBA 1 (OFF)</button>
+            
+            <label style="margin-top:10px; display:block;">Bomba Peristáltica 2 (pH Down):</label>
+            <button id="btn_bomba2" class="apagado" onclick="toggleBomba('Bomba2')">BOMBA 2 (OFF)</button>
+            
+            <label style="margin-top:10px; display:block;">Bomba Peristáltica 3 (Nutri A):</label>
+            <button id="btn_bomba3" class="apagado" onclick="toggleBomba('Bomba3')">BOMBA 3 (OFF)</button>
+
+            <label style="margin-top:10px; display:block;">Bomba Peristáltica 4 (Nutri B):</label>
+            <button id="btn_bomba4" class="apagado" onclick="toggleBomba('Bomba4')">BOMBA 4 (OFF)</button>
+
+            <label style="margin-top:10px; display:block;">Bomba Principal (110V - SSR):</label>
+            <button id="btn_bombaprincipal" class="apagado" onclick="toggleBomba('BombaPrincipal')">BOMBA PRINCIPAL (OFF)</button>
+        </div>
     </div>
 
     <script>
-        // REEMPLAZA CON TUS DATOS DE FIREBASE (Configuración del Proyecto > General)
+        // Configuración de Firebase
         var firebaseConfig = {
             apiKey: "zwDBZRMGD5TnmHoKqVy8pFxatalg0fRZ3knfMne7",
             authDomain: "hidroponico-619dc-default-rtdb.firebaseio.com/",
             databaseURL: "https://hidroponico-619dc-default-rtdb.firebaseio.com/",
-            projectId: "tu-proyecto"
+            projectId: "hidroponico-619dc"
         };
         
         firebase.initializeApp(firebaseConfig);
@@ -49,42 +71,47 @@
         database.ref('/Sensores').on('value', (snapshot) => {
             const data = snapshot.val();
             if(data){
-                document.getElementById('val_temp1').innerText = data.Temperatura1;
-                document.getElementById('val_temp2').innerText = data.Temperatura2;
-                document.getElementById('val_ph').innerText = data.pH;
-                document.getElementById('val_nivel').innerText = data.Nivel;
+                document.getElementById('val_temp1').innerText = data.Temperatura1 !== undefined ? data.Temperatura1.toFixed(1) : '--';
+                document.getElementById('val_temp2').innerText = data.Temperatura2 !== undefined ? data.Temperatura2.toFixed(1) : '--';
+                document.getElementById('val_ph').innerText = data.pH !== undefined ? data.pH.toFixed(2) : '--';
+                document.getElementById('val_tds').innerText = data.TDS !== undefined ? data.TDS.toFixed(0) : '--';
+                document.getElementById('val_nivel').innerText = data.Nivel !== undefined ? data.Nivel.toFixed(1) : '--';
+                document.getElementById('val_flujo').innerText = data.Flujo !== undefined ? data.Flujo.toFixed(2) : '--';
             }
         });
 
-        // 2. CONTROLAR BOMBAS
-        function toggleBomba(numeroBomba) {
-            const btn = document.getElementById('btn_' + numeroBomba.toLowerCase());
-            // Determinar estado actual por la clase del botón
+        // 2. CONTROLAR BOMBAS DESDE LA WEB
+        function toggleBomba(nombreBomba) {
+            const btn = document.getElementById('btn_' + nombreBomba.toLowerCase());
             const estadoActual = btn.classList.contains('encendido');
             const nuevoEstado = !estadoActual;
 
-            // Enviar a Firebase
-            database.ref('/Bombas/' + numeroBomba).set(nuevoEstado);
+            // Enviar el nuevo estado a Firebase
+            database.ref('/Bombas/' + nombreBomba).set(nuevoEstado);
         }
 
-        // 3. LEER ESTADO DE LAS BOMBAS PARA ACTUALIZAR BOTONES
+        // 3. LEER ESTADO DE LAS BOMBAS PARA SINCRONIZAR LOS BOTONES
         database.ref('/Bombas').on('value', (snapshot) => {
             const bombas = snapshot.val();
             if(bombas){
                 actualizarBoton('bomba1', bombas.Bomba1);
                 actualizarBoton('bomba2', bombas.Bomba2);
                 actualizarBoton('bomba3', bombas.Bomba3);
+                actualizarBoton('bomba4', bombas.Bomba4);
+                actualizarBoton('bombaprincipal', bombas.BombaPrincipal);
             }
         });
 
         function actualizarBoton(idBoton, estado) {
             const btn = document.getElementById('btn_' + idBoton);
-            if(estado) {
-                btn.className = "encendido";
-                btn.innerText = idBoton.toUpperCase() + " (ON)";
-            } else {
-                btn.className = "apagado";
-                btn.innerText = idBoton.toUpperCase() + " (OFF)";
+            if(btn) {
+                if(estado) {
+                    btn.className = "encendido";
+                    btn.innerText = idBoton.toUpperCase() + " (ON)";
+                } else {
+                    btn.className = "apagado";
+                    btn.innerText = idBoton.toUpperCase() + " (OFF)";
+                }
             }
         }
     </script>
