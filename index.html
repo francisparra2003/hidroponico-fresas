@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Control Hidropónico NFT</title>
+    <!-- Firebase SDK (Versión 8 por simplicidad) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f9; padding: 20px;}
+        .tarjeta { background: white; padding: 20px; margin: 10px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); display: inline-block; width: 250px;}
+        button { padding: 10px 20px; margin-top: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px;}
+        .encendido { background-color: #4CAF50; color: white; }
+        .apagado { background-color: #f44336; color: white; }
+    </style>
+</head>
+<body>
+
+    <h1>Panel Hidropónico de Fresas</h1>
+
+    <div class="tarjeta">
+        <h2>Sensores</h2>
+        <p>Temp 1: <span id="val_temp1">--</span> °C</p>
+        <p>Temp 2: <span id="val_temp2">--</span> °C</p>
+        <p>pH: <span id="val_ph">--</span></p>
+        <p>Nivel: <span id="val_nivel">--</span> %</p>
+    </div>
+
+    <div class="tarjeta">
+        <h2>Bombas</h2>
+        <button id="btn_bomba1" class="apagado" onclick="toggleBomba('Bomba1')">Bomba 1</button><br>
+        <button id="btn_bomba2" class="apagado" onclick="toggleBomba('Bomba2')">Bomba 2</button><br>
+        <button id="btn_bomba3" class="apagado" onclick="toggleBomba('Bomba3')">Bomba 3</button>
+    </div>
+
+    <script>
+        // REEMPLAZA CON TUS DATOS DE FIREBASE (Configuración del Proyecto > General)
+        var firebaseConfig = {
+            apiKey: "zwDBZRMGD5TnmHoKqVy8pFxatalg0fRZ3knfMne7",
+            authDomain: "hidroponico-619dc-default-rtdb.firebaseio.com/",
+            databaseURL: "https://hidroponico-619dc-default-rtdb.firebaseio.com/",
+            projectId: "tu-proyecto"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        var database = firebase.database();
+
+        // 1. LEER SENSORES EN TIEMPO REAL
+        database.ref('/Sensores').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if(data){
+                document.getElementById('val_temp1').innerText = data.Temperatura1;
+                document.getElementById('val_temp2').innerText = data.Temperatura2;
+                document.getElementById('val_ph').innerText = data.pH;
+                document.getElementById('val_nivel').innerText = data.Nivel;
+            }
+        });
+
+        // 2. CONTROLAR BOMBAS
+        function toggleBomba(numeroBomba) {
+            const btn = document.getElementById('btn_' + numeroBomba.toLowerCase());
+            // Determinar estado actual por la clase del botón
+            const estadoActual = btn.classList.contains('encendido');
+            const nuevoEstado = !estadoActual;
+
+            // Enviar a Firebase
+            database.ref('/Bombas/' + numeroBomba).set(nuevoEstado);
+        }
+
+        // 3. LEER ESTADO DE LAS BOMBAS PARA ACTUALIZAR BOTONES
+        database.ref('/Bombas').on('value', (snapshot) => {
+            const bombas = snapshot.val();
+            if(bombas){
+                actualizarBoton('bomba1', bombas.Bomba1);
+                actualizarBoton('bomba2', bombas.Bomba2);
+                actualizarBoton('bomba3', bombas.Bomba3);
+            }
+        });
+
+        function actualizarBoton(idBoton, estado) {
+            const btn = document.getElementById('btn_' + idBoton);
+            if(estado) {
+                btn.className = "encendido";
+                btn.innerText = idBoton.toUpperCase() + " (ON)";
+            } else {
+                btn.className = "apagado";
+                btn.innerText = idBoton.toUpperCase() + " (OFF)";
+            }
+        }
+    </script>
+</body>
+</html>
