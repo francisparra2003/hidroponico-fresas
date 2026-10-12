@@ -26,6 +26,8 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
 .bar{height:10px;background:var(--mist);border-radius:9px;overflow:hidden;margin:10px 0 6px}.bar i{display:block;height:100%;background:var(--berry)}
 .vals{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:10px 0}.vals b{font-size:20px}
 .pumps{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pumps button.on{background:var(--berry)}
+label{display:block;min-width:140px;font-size:13px;font-weight:600;color:var(--mut)}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12px;border-radius:6px;font-size:13px;user-select:all}
 #acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
 </style></head><body>
@@ -55,12 +57,16 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
   <h2>Resumen</h2><div id="stats" class="stats"></div>
   <h2>Solicitudes pendientes</h2><div id="pend" class="grid"></div>
   <h2>Estaciones</h2><div id="ests" class="grid"></div>
+  <div class="card" style="margin-top:16px"><h3>Agregar estación</h3>
+    <p class="mut">Cada ESP32 usa su propia cuenta. Aquí se crea y obtienes los 3 datos para cargar en su firmware. Cuando esa ESP32 se conecte, la estación pasa a "En línea".</p>
+    <div class="row"><label>ID de la estación<input id="eid" placeholder="Ej. est02"></label><label>Nombre (opcional)<input id="enom" placeholder="Ej. Invernadero 2"></label></div>
+    <button onclick="addEstacion()">Crear estación</button>
+    <pre id="eres" class="hide" style="margin-top:12px"></pre></div>
   <h2>Lotes</h2><div id="lotes" class="grid"></div>
   <div class="card" style="margin-top:16px"><h3>Agregar lote</h3>
     <p class="mut">Un lote es un grupo de plantas dentro de una estación. Puedes crear varios por estación.</p>
-    <div class="row"><input id="lnom" placeholder="Nombre (ej. Lote A)"><select id="lest" title="Estación"></select></div>
-    <div class="row"><input id="lpl" type="number" value="20" min="1" title="Número de plantas"><input id="ldias" type="number" value="90" min="1" title="Días de contrato"></div>
-    <select id="lcul" title="Modo de cultivo"><option value="frutilla">Modo de cultivo: Frutilla</option></select>
+    <div class="row"><label>Nombre del lote<input id="lnom" placeholder="Ej. Lote A"></label><label>Estación<select id="lest"></select></label></div>
+    <div class="row"><label>Número de plantas<input id="lpl" type="number" value="20" min="1"></label><label>Días de contrato<input id="ldias" type="number" value="90" min="1"></label><label>Modo de cultivo<select id="lcul"><option value="frutilla">Frutilla</option></select></label></div>
     <p class="mut">Con el modo elegido la estación controla sola el pH, los nutrientes y la bomba del tanque.</p>
     <button onclick="addLote()">Agregar lote</button></div>
   <h2>Registro de actividad</h2><div class="card"><div id="log" class="mut"></div></div>
@@ -71,10 +77,11 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
 </section>
 </main>
 <script>
-firebase.initializeApp({
+const FB_CFG={
   apiKey:"AIzaSyD_WYLEyrCp9KmUHr4ac7-zTIFImazSVT8", authDomain:"hidroponico-619dc.firebaseapp.com",
   databaseURL:"https://hidroponico-619dc-default-rtdb.firebaseio.com", projectId:"hidroponico-619dc"
-});
+};
+firebase.initializeApp(FB_CFG);
 const auth=firebase.auth(), db=firebase.database(), $=id=>document.getElementById(id);
 let uid=null, rol=null, miEst=null, chart=null, lotes={}, subs={}, ests={}, refs=[];
 const DAY=86400000, fmt=t=>new Date(t).toLocaleDateString('es');
@@ -151,7 +158,7 @@ function pintarCliente(){
       <div class="bar"><i style="width:${pct}%"></i></div><b>Faltan ${dias} días</b><p class="mut">${l.plantas||'—'} plantas · contrato del ${fmt(s.fechaInicio)} al ${fmt(s.fechaFin)}</p></div>`
       :`<div class="card"><h3>${l.nombre}</h3><span class="tag">Contrato finalizado</span><p class="mut">Terminó el ${fmt(s.fechaFin)}</p></div>`}).join(''):'<p class="mut">Aún no tienes lotes. Elige uno abajo.</p>';
   const libres=Object.entries(lotes).filter(([id,l])=>l.estado==='disponible'&&!ocupados.has(id));
-  $('disp').innerHTML=libres.length?libres.map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><p class="mut">${l.plantas||'—'} plantas de ${l.cultivo||'fresa'} · ${l.dias} días</p><button onclick="suscribir('${id}')">Suscribirme</button></div>`).join(''):'<p class="mut">No hay lotes disponibles ahora.</p>';
+  $('disp').innerHTML=libres.length?libres.map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><p class="mut">${l.plantas||'—'} plantas de ${l.cultivo||'frutilla'} · contrato de ${l.dias} días</p><button onclick="suscribir('${id}')">Suscribirme</button></div>`).join(''):'<p class="mut">No hay lotes disponibles ahora.</p>';
 }
 function suscribir(loteId){
   db.ref('/suscripciones/'+uid).push({loteId,uid,email:auth.currentUser.email,estado:'pendiente',creada:Date.now()});
@@ -186,7 +193,7 @@ function addLote(){const n=$('lnom').value.trim(),e=$('lest').value;if(!n||!e)re
 function pintarLotes(){
   const c={disponible:'ok',ocupado:'wait'};
   $('lotes').innerHTML=Object.entries(lotes).map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><span class="tag ${c[l.estado]||''}">${l.estado}</span>
-    <p class="mut">${nombreEst(l.estacionId)} · ${l.plantas||'—'} plantas · ${l.dias} días${l.fechaFin?` · hasta ${fmt(l.fechaFin)}`:''}</p>
+    <p class="mut">Estación: ${nombreEst(l.estacionId)} · Plantas: ${l.plantas||'—'} · Contrato: ${l.dias} días${l.fechaFin?` · hasta ${fmt(l.fechaFin)}`:''}</p>
     ${l.estado==='ocupado'?`<button class="sec" onclick="liberar('${id}')">Liberar lote</button>`:`<button class="sec" onclick="eliminarLote('${id}')">Eliminar</button>`}</div>`).join('')||'<p class="mut">Sin lotes.</p>';
 }
 function eliminarLote(id){if(confirm('¿Eliminar este lote?'))db.ref('/lotes/'+id).remove()}
@@ -209,6 +216,28 @@ async function liberar(id){
   await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:otros});
   log('Lote liberado: '+l.nombre)}
 
+
+let app2=null;
+async function addEstacion(){
+  const id=$('eid').value.trim().toLowerCase(), out=$('eres');
+  out.classList.remove('hide');
+  if(!/^[a-z0-9_-]{3,20}$/.test(id)){out.textContent='ID inválido: usa de 3 a 20 letras minúsculas, números, - o _.';return}
+  if(ests[id]){out.textContent='Ya existe una estación con ese ID.';return}
+  const email=id+'@dispositivo.local', ab='abcdefghjkmnpqrstuvwxyz23456789';
+  const pass=Array.from(crypto.getRandomValues(new Uint8Array(10)),b=>ab[b%ab.length]).join('');
+  try{
+    app2=app2||firebase.initializeApp(FB_CFG,'sec');
+    const a2=app2.auth(), cred=await a2.createUserWithEmailAndPassword(email,pass), duid=cred.user.uid;
+    await a2.signOut();
+    const up={};
+    up['/Dispositivos/'+duid]=id;
+    up['/estaciones/'+id+'/info/nombre']=$('enom').value.trim()||id;
+    up['/estaciones/'+id+'/config/modo']='auto';
+    await db.ref().update(up);log('Estación creada: '+id);
+    out.textContent='Estación creada. Carga estos datos en el firmware de la nueva ESP32:\n\n#define ESTACION_ID "'+id+'"\n#define DEVICE_EMAIL "'+email+'"\n#define DEVICE_PASSWORD "'+pass+'"\n\nGuarda la contraseña: no se vuelve a mostrar.';
+    $('eid').value='';$('enom').value='';
+  }catch(e){out.textContent=e.code==='auth/email-already-in-use'?'Ya existe una cuenta con ese ID. Usa otro ID.':e.message}
+}
 
 // ================= HISTÓRICO =================
 function verHist(i){$('hsel').value=i;cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
