@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cosecha en renta · Fresas</title>
+<title>Cosecha en renta · Frutilla</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -29,7 +29,7 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
 #acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
 </style></head><body>
-<header><h1>Cosecha en renta · Fresas</h1><div><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div></header>
+<header><h1>Cosecha en renta · Frutilla</h1><div><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div></header>
 <main>
 <div id="acceso" class="card">
   <h3>Ingresa o crea tu cuenta</h3>
@@ -60,11 +60,9 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
     <p class="mut">Un lote es un grupo de plantas dentro de una estación. Puedes crear varios por estación.</p>
     <div class="row"><input id="lnom" placeholder="Nombre (ej. Lote A)"><select id="lest" title="Estación"></select></div>
     <div class="row"><input id="lpl" type="number" value="20" min="1" title="Número de plantas"><input id="ldias" type="number" value="90" min="1" title="Días de contrato"></div>
+    <select id="lcul" title="Modo de cultivo"><option value="frutilla">Modo de cultivo: Frutilla</option></select>
+    <p class="mut">Con el modo elegido la estación controla sola el pH, los nutrientes y la bomba del tanque.</p>
     <button onclick="addLote()">Agregar lote</button></div>
-  <h2>Receta de fresa</h2>
-  <div class="card"><div class="row" id="recForm"></div>
-    <div class="row"><button onclick="guardarReceta()">Guardar receta</button></div>
-    <p class="mut">Valores iniciales de referencia: valídalos con un agrónomo. Al aprobar un lote, la receta se copia a la estación.</p></div>
   <h2>Registro de actividad</h2><div class="card"><div id="log" class="mut"></div></div>
 </section>
 
@@ -79,7 +77,6 @@ firebase.initializeApp({
 });
 const auth=firebase.auth(), db=firebase.database(), $=id=>document.getElementById(id);
 let uid=null, rol=null, miEst=null, chart=null, lotes={}, subs={}, ests={}, refs=[];
-const RECETA_BASE={nombre:"Fresa",phMin:5.5,phMax:6.5,tdsMin:500,tdsMax:700,tempMax:24,cicloOnMin:15,cicloOffMin:15,dosisSeg:2,esperaMin:10,nivelVacioCm:30};
 const DAY=86400000, fmt=t=>new Date(t).toLocaleDateString('es');
 const nombreEst=i=>ests[i]?.info?.nombre||i;
 const log=m=>db.ref('/registros').push({t:Date.now(),msg:m});
@@ -115,15 +112,16 @@ function cardEst(i,adm){
   const f=(v,d)=>v!==undefined?Number(v).toFixed(d):'--';
   const ls=Object.values(lotes).filter(l=>l.estacionId===i&&l.estado==='ocupado');
   const pl=ls.reduce((a,l)=>a+(+l.plantas||0),0);
-  const B=['Bomba1','Bomba2','Bomba3','Bomba4','BombaPrincipal'], N=['pH+','pH−','Nutri A','Nutri B','Principal'];
+  const eb=e.estado?.bombas||{}, P=[['Bomba1','pH+'],['Bomba2','pH−'],['Bomba3','Nutri A'],['Bomba4','Nutri B'],['BombaPrincipal','Tanque']];
   return `<div class="card"><h3>${nombreEst(i)}</h3>
     <span class="tag ${enLinea(e)?'ok':'warn'}">${enLinea(e)?'En línea':'Sin conexión'}</span> <span class="tag">${c.activa?'Con cultivo':'Libre'}</span>
     ${adm?`<p class="mut">${ls.length} lote(s) ocupados · ${pl} plantas</p>`:''}
     <div class="vals"><span>pH<br><b>${f(s.pH,2)}</b></span><span>TDS ppm<br><b>${f(s.TDS,0)}</b></span><span>Solución °C<br><b>${f(s.Temperatura1,1)}</b></span>
     <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Caudal L/min<br><b>${f(s.Flujo,2)}</b></span></div>
-    <p class="mut">Última acción: ${e.estado?.ultimaAccion||'—'}</p>
+    <p class="mut">Cultivo: ${c.cultivo||'—'} · ${c.modo==='manual'?'Manual':'Automático'}<br>Última acción: ${e.estado?.ultimaAccion||'—'}</p>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">${P.map(([k,n])=>`<span class="tag ${eb[k]?'ok':''}">${n} ${eb[k]?'ON':'OFF'}</span>`).join('')}</div>
     ${adm?`<div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
-    ${c.modo==='manual'?`<div class="pumps" style="margin-top:8px">${B.map((k,n)=>`<button class="${b[k]?'on':'sec'}" onclick="db.ref('/estaciones/${i}/bombas/${k}').set(${!b[k]})">${N[n]} ${b[k]?'ON':'OFF'}</button>`).join('')}</div>`:''}
+    ${c.modo==='manual'?`<button class="${b.BombaPrincipal?'red':'sec'}" style="margin-top:8px;width:100%" onclick="db.ref('/estaciones/${i}/bombas/BombaPrincipal').set(${!b.BombaPrincipal})">Bomba del tanque ${b.BombaPrincipal?'ON':'OFF'}</button><p class="mut">En manual solo controlas la bomba del tanque; las de nutrientes se detienen.</p>`:''}
     <div class="row" style="margin-top:8px"><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="sec" onclick="verHist('${i}')">Histórico</button></div>`:''}</div>`;
 }
 
@@ -165,7 +163,6 @@ function iniciarAdmin(){
   escucha('/lotes',v=>{lotes=v||{};pintar()});
   escucha('/suscripciones',v=>{subs=v||{};pintar()});
   escucha('/estaciones',v=>{ests=v||{};pintar()});   // las estaciones aparecen solas
-  escucha('/recetas/fresa',v=>pintarReceta(v||RECETA_BASE));
   escucha('/registros',v=>{$('log').innerHTML=Object.values(v||{}).reverse().map(r=>`${new Date(r.t).toLocaleString('es')} — ${r.msg}`).join('<br>')||'Sin actividad.'},r=>r.limitToLast(15));
 }
 function pintarResumen(){
@@ -185,7 +182,7 @@ function pintarEsts(){
 function setModo(i,m){db.ref('/estaciones/'+i+'/config/modo').set(m);log(`${nombreEst(i)} en modo ${m}`)}
 function renombrar(i){const n=prompt('Nombre de la estación',nombreEst(i));if(n&&n.trim())db.ref('/estaciones/'+i+'/info/nombre').set(n.trim())}
 function addLote(){const n=$('lnom').value.trim(),e=$('lest').value;if(!n||!e)return;
-  db.ref('/lotes').push({nombre:n,estacionId:e,cultivo:'fresa',plantas:+$('lpl').value||1,dias:+$('ldias').value||90,estado:'disponible'});log('Lote agregado: '+n);$('lnom').value=''}
+  db.ref('/lotes').push({nombre:n,estacionId:e,cultivo:$('lcul').value,plantas:+$('lpl').value||1,dias:+$('ldias').value||90,estado:'disponible'});log('Lote agregado: '+n);$('lnom').value=''}
 function pintarLotes(){
   const c={disponible:'ok',ocupado:'wait'};
   $('lotes').innerHTML=Object.entries(lotes).map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><span class="tag ${c[l.estado]||''}">${l.estado}</span>
@@ -200,10 +197,10 @@ function pintarPend(){
 }
 async function aprobar(u,id){
   const s=subs[u][id], l=lotes[s.loteId]; if(!l||l.estado!=='disponible'){alert('El lote ya no está disponible.');return}
-  const rec=(await db.ref('/recetas/fresa').get()).val()||RECETA_BASE, ini=Date.now(), fin=ini+l.dias*DAY, up={};
+  const ini=Date.now(), fin=ini+l.dias*DAY, up={};
   up[`/suscripciones/${u}/${id}/estado`]='activa';up[`/suscripciones/${u}/${id}/fechaInicio`]=ini;up[`/suscripciones/${u}/${id}/fechaFin`]=fin;
   up[`/lotes/${s.loteId}/estado`]='ocupado';up[`/lotes/${s.loteId}/clienteUid`]=u;up[`/lotes/${s.loteId}/fechaFin`]=fin;
-  Object.entries({...rec,activa:true,modo:'auto'}).forEach(([k,v])=>up[`/estaciones/${l.estacionId}/config/${k}`]=v);
+  Object.entries({activa:true,modo:'auto',cultivo:l.cultivo||'frutilla'}).forEach(([k,v])=>up[`/estaciones/${l.estacionId}/config/${k}`]=v);
   await db.ref().update(up);log(`Aprobado ${s.email} en ${l.nombre}`);
 }
 function rechazar(u,id){db.ref(`/suscripciones/${u}/${id}/estado`).set('rechazada');log('Solicitud rechazada')}
@@ -212,9 +209,6 @@ async function liberar(id){
   await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:otros});
   log('Lote liberado: '+l.nombre)}
 
-const REC=[['phMin','pH mín'],['phMax','pH máx'],['tdsMin','TDS mín'],['tdsMax','TDS máx'],['tempMax','Temp máx °C'],['cicloOnMin','Bomba ON min'],['cicloOffMin','Bomba OFF min'],['dosisSeg','Dosis seg'],['esperaMin','Espera min'],['nivelVacioCm','Tanque vacío cm']];
-function pintarReceta(r){$('recForm').innerHTML=REC.map(([k,n])=>`<label>${n}<input id="r_${k}" type="number" step="any" value="${r[k]??RECETA_BASE[k]}"></label>`).join('')}
-function guardarReceta(){const r={nombre:'Fresa'};REC.forEach(([k])=>r[k]=+$('r_'+k).value);db.ref('/recetas/fresa').set(r);log('Receta de fresa actualizada')}
 
 // ================= HISTÓRICO =================
 function verHist(i){$('hsel').value=i;cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
