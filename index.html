@@ -28,6 +28,7 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
 .pumps{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pumps button.on{background:var(--berry)}
 label{display:block;min-width:140px;font-size:13px;font-weight:600;color:var(--mut)}
 pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12px;border-radius:6px;font-size:13px;user-select:all}
+.log{max-height:260px;overflow:auto;line-height:1.7}.sub{margin:18px 0 6px;padding-top:12px;border-top:1px solid var(--mist);font-size:16px}
 #acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
 </style></head><body>
@@ -70,7 +71,14 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12p
     <div class="row"><label>Número de plantas<input id="lpl" type="number" value="20" min="1"></label><label>Días de contrato<input id="ldias" type="number" value="90" min="1"></label><label>Modo de cultivo<select id="lcul"><option value="frutilla">Frutilla</option></select></label></div>
     <p class="mut">Con el modo elegido la estación controla sola el pH, los nutrientes y la bomba del tanque.</p>
     <button onclick="addLote()">Agregar lote</button></div>
-  <h2>Registro de actividad</h2><div class="card"><div id="log" class="mut"></div></div>
+  <h2>Registro de actividad</h2>
+  <div class="card"><h3>Operación de lotes</h3>
+    <div id="logLote" class="mut log"></div>
+    <h4 class="sub">Acciones de las estaciones</h4>
+    <div id="logEst" class="mut log"></div></div>
+  <div class="card" style="margin-top:16px"><h3>Aprobaciones</h3>
+    <div id="logTot" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+    <div id="logApr" class="mut log"></div></div>
 </section>
 
 <section id="hist" class="hide">
@@ -84,10 +92,12 @@ const FB_CFG={
 };
 firebase.initializeApp(FB_CFG);
 const auth=firebase.auth(), db=firebase.database(), $=id=>document.getElementById(id);
-let uid=null, rol=null, miEst=null, chart=null, lotes={}, subs={}, ests={}, hab={}, refs=[];
+let uid=null, rol=null, miEst=null, chart=null, lotes={}, subs={}, ests={}, hab={}, regs={lote:{},estacion:{},aprobacion:{}}, refs=[];
 const DAY=86400000, fmt=t=>new Date(t).toLocaleDateString('es');
 const nombreEst=i=>ests[i]?.info?.nombre||i;
-const log=m=>db.ref('/registros').push({t:Date.now(),msg:m});
+const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// tipo: 'lote' (operación de lotes) | 'estacion' (acciones de estaciones) | 'aprobacion' (decisiones del admin)
+const log=(m,tipo,est)=>{const r={t:Date.now(),tipo:tipo||'general',msg:m};if(est)r.est=est;db.ref('/registros').push(r)};
 const escucha=(path,cb,q)=>{const r=q?q(db.ref(path)):db.ref(path);r.on('value',s=>cb(s.val()));refs.push(r)};
 const enLinea=e=>{const t=e?.estado?.ultimaVez;return !!t&&(Date.now()/1000-t)<30};
 
@@ -108,7 +118,7 @@ auth.onAuthStateChanged(async u=>{
 });
 
 function pintar(){
-  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend()}
+  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog()}
   else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
   else if(rol==='cliente')pintarCliente();
 }
@@ -129,7 +139,7 @@ function cardEst(i,adm){
     <p class="mut">Cultivo: ${c.cultivo||'—'} · ${c.modo==='manual'?'Manual':'Automático'}<br>Última acción: ${e.estado?.ultimaAccion||'—'}</p>
     <div style="display:flex;gap:4px;flex-wrap:wrap">${P.map(([k,n])=>`<span class="tag ${eb[k]?'ok':''}">${n} ${eb[k]?'ON':'OFF'}</span>`).join('')}</div>
     ${adm?`<div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
-    ${c.modo==='manual'?`<button class="${b.BombaPrincipal?'red':'sec'}" style="margin-top:8px;width:100%" onclick="db.ref('/estaciones/${i}/bombas/BombaPrincipal').set(${!b.BombaPrincipal})">Bomba del tanque ${b.BombaPrincipal?'ON':'OFF'}</button><p class="mut">En manual solo controlas la bomba del tanque; las de nutrientes se detienen.</p>`:''}
+    ${c.modo==='manual'?`<button class="${b.BombaPrincipal?'red':'sec'}" style="margin-top:8px;width:100%" onclick="bombaTanque('${i}',${!b.BombaPrincipal})">Bomba del tanque ${b.BombaPrincipal?'ON':'OFF'}</button><p class="mut">En manual solo controlas la bomba del tanque; las de nutrientes se detienen.</p>`:''}
     <div class="row" style="margin-top:8px"><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="sec" onclick="verHist('${i}')">Histórico</button><button class="sec" onclick="deshabilitar('${i}')">Deshabilitar</button></div>`:''}</div>`;
 }
 
@@ -179,7 +189,7 @@ function iniciarAdmin(){
   escucha('/suscripciones',v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
   escucha('/estaciones',v=>{ests=v||{};pintar()});   // las estaciones aparecen solas
-  escucha('/registros',v=>{$('log').innerHTML=Object.values(v||{}).reverse().map(r=>`${new Date(r.t).toLocaleString('es')} — ${r.msg}`).join('<br>')||'Sin actividad.'},r=>r.limitToLast(15));
+  ['lote','estacion','aprobacion'].forEach(t=>escucha('/registros',v=>{regs[t]=v||{};pintarLog()},r=>r.orderByChild('tipo').equalTo(t).limitToLast(t==='estacion'?30:15)));
 }
 function pintarResumen(){
   const ids=Object.keys(ests), on=ids.filter(i=>enLinea(ests[i])).length;
@@ -204,29 +214,30 @@ function pintarEsts(){
   $('pendEst').innerHTML=por.length?por.map(i=>cardPend(i)).join(''):'<p class="mut">Ninguna estación espera autorización. Las ESP32 nuevas aparecen aquí al conectarse.</p>';
   $('ests').innerHTML=aut.length?aut.map(i=>cardEst(i,true)).join(''):'<p class="mut">Aún no hay estaciones autorizadas.</p>';
 }
-function setModo(i,m){db.ref('/estaciones/'+i+'/config/modo').set(m);log(`${nombreEst(i)} en modo ${m}`)}
+function bombaTanque(i,v){db.ref('/estaciones/'+i+'/bombas/BombaPrincipal').set(v);log('Bomba del tanque '+(v?'encendida':'apagada')+' (manual)','estacion',i)}
+function setModo(i,m){db.ref('/estaciones/'+i+'/config/modo').set(m);log(`Modo ${m}`,'estacion',i)}
 function renombrar(i){const n=prompt('Nombre de la estación',nombreEst(i));if(!n||!n.trim())return;
   const up={['/estaciones/'+i+'/info/nombre']:n.trim()};if(hab[i])up['/habilitadas/'+i+'/nombre']=n.trim();db.ref().update(up)}
 // Autorizar = la estación detectada queda visible para que se creen lotes y los clientes los vean
 function autorizar(i){
   const up={['/habilitadas/'+i]:{nombre:nombreEst(i)}};
   if(!ests[i]?.config?.modo)up['/estaciones/'+i+'/config/modo']='auto';
-  db.ref().update(up).then(()=>log('Estación autorizada: '+nombreEst(i)))}
+  db.ref().update(up).then(()=>log('Estación autorizada: '+nombreEst(i),'aprobacion'))}
 function deshabilitar(i){
   if(Object.values(lotes).some(l=>l.estacionId===i&&l.estado==='ocupado')){alert('Libera primero los lotes ocupados de esta estación.');return}
-  if(confirm('¿Deshabilitar esta estación? Los clientes dejarán de ver sus lotes.'))db.ref('/habilitadas/'+i).remove().then(()=>log('Estación deshabilitada: '+nombreEst(i)))}
+  if(confirm('¿Deshabilitar esta estación? Los clientes dejarán de ver sus lotes.'))db.ref('/habilitadas/'+i).remove().then(()=>log('Estación deshabilitada: '+nombreEst(i),'aprobacion'))}
 function addLote(){const n=$('lnom').value.trim(),e=$('lest').value;if(!n||!e||!hab[e])return;
-  db.ref('/lotes').push({nombre:n,estacionId:e,estacionNombre:nombreEst(e),cultivo:$('lcul').value,plantas:+$('lpl').value||1,dias:+$('ldias').value||90,estado:'disponible'});log('Lote agregado: '+n);$('lnom').value=''}
+  db.ref('/lotes').push({nombre:n,estacionId:e,estacionNombre:nombreEst(e),cultivo:$('lcul').value,plantas:+$('lpl').value||1,dias:+$('ldias').value||90,estado:'disponible'});log(`Lote agregado: ${n} (${+$('lpl').value||1} plantas)`,'lote',e);$('lnom').value=''}
 function pintarLotes(){
   const c={disponible:'ok',ocupado:'wait'};
   $('lotes').innerHTML=Object.entries(lotes).map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><span class="tag ${c[l.estado]||''}">${l.estado}</span>
     <p class="mut">Estación: ${nombreEst(l.estacionId)} · Plantas: ${l.plantas||'—'} · Contrato: ${l.dias} días${l.fechaFin?` · hasta ${fmt(l.fechaFin)}`:''}</p>
     ${l.estado==='ocupado'?`<button class="sec" onclick="liberar('${id}')">Liberar lote</button>`:`<button class="sec" onclick="eliminarLote('${id}')">Eliminar</button>`}</div>`).join('')||'<p class="mut">Sin lotes.</p>';
 }
-function eliminarLote(id){if(confirm('¿Eliminar este lote?'))db.ref('/lotes/'+id).remove()}
+function eliminarLote(id){const l=lotes[id];if(confirm('¿Eliminar este lote?')){db.ref('/lotes/'+id).remove();log('Lote eliminado: '+(l?.nombre||id),'lote',l?.estacionId)}}
 function pintarPend(){
   const p=[];Object.entries(subs).forEach(([u,m])=>Object.entries(m).forEach(([id,s])=>{if(s.estado==='pendiente')p.push([u,id,s])}));
-  $('pend').innerHTML=p.length?p.map(([u,id,s])=>`<div class="card"><h3>${lotes[s.loteId]?.nombre||s.loteId}</h3><p class="mut">${s.email}<br>${fmt(s.creada)}</p>
+  $('pend').innerHTML=p.length?p.map(([u,id,s])=>`<div class="card"><h3>${lotes[s.loteId]?.nombre||s.loteId}</h3><p class="mut">${esc(s.email)}<br>${fmt(s.creada)}</p>
     <div class="row"><button onclick="aprobar('${u}','${id}')">Aprobar</button><button class="red" onclick="rechazar('${u}','${id}')">Rechazar</button></div></div>`).join(''):'<p class="mut">Nada pendiente.</p>';
 }
 async function aprobar(u,id){
@@ -235,13 +246,13 @@ async function aprobar(u,id){
   up[`/suscripciones/${u}/${id}/estado`]='activa';up[`/suscripciones/${u}/${id}/fechaInicio`]=ini;up[`/suscripciones/${u}/${id}/fechaFin`]=fin;
   up[`/lotes/${s.loteId}/estado`]='ocupado';up[`/lotes/${s.loteId}/clienteUid`]=u;up[`/lotes/${s.loteId}/fechaFin`]=fin;
   Object.entries({activa:true,modo:'auto',cultivo:l.cultivo||'frutilla'}).forEach(([k,v])=>up[`/estaciones/${l.estacionId}/config/${k}`]=v);
-  await db.ref().update(up);log(`Aprobado ${s.email} en ${l.nombre}`);
+  await db.ref().update(up);log(`Aprobado ${s.email} en ${l.nombre}`,'aprobacion');log(`${l.nombre} asignado a ${s.email} por ${l.dias} días`,'lote',l.estacionId);
 }
-function rechazar(u,id){db.ref(`/suscripciones/${u}/${id}/estado`).set('rechazada');log('Solicitud rechazada')}
+function rechazar(u,id){const s=subs[u][id];db.ref(`/suscripciones/${u}/${id}/estado`).set('rechazada');log(`Rechazada la solicitud de ${s.email} para ${lotes[s.loteId]?.nombre||s.loteId}`,'aprobacion')}
 async function liberar(id){
   const l=lotes[id], otros=Object.entries(lotes).some(([k,x])=>k!==id&&x.estacionId===l.estacionId&&x.estado==='ocupado');
   await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:otros});
-  log('Lote liberado: '+l.nombre)}
+  log('Lote liberado: '+l.nombre,'lote',l.estacionId)}
 
 
 let app2=null;
@@ -261,10 +272,24 @@ async function addEstacion(){
     up['/estaciones/'+id+'/info/nombre']=$('enom').value.trim()||id;
     up['/estaciones/'+id+'/config/modo']='auto';
     up['/habilitadas/'+id]={nombre:$('enom').value.trim()||id};
-    await db.ref().update(up);log('Estación creada: '+id);
+    await db.ref().update(up);log('Estación creada y autorizada: '+id,'aprobacion');
     out.textContent='Estación creada. Carga estos datos en el firmware de la nueva ESP32:\n\n#define ESTACION_ID "'+id+'"\n#define DEVICE_EMAIL "'+email+'"\n#define DEVICE_PASSWORD "'+pass+'"\n\nGuarda la contraseña: no se vuelve a mostrar.';
     $('eid').value='';$('enom').value='';
   }catch(e){out.textContent=e.code==='auth/email-already-in-use'?'Ya existe una cuenta con ese ID. Usa otro ID.':e.message}
+}
+
+// ================= REGISTRO =================
+const tm=r=>r.t<1e11?r.t*1000:r.t;   // las estaciones guardan segundos, la web milisegundos
+const lista=(arr,f,n)=>arr.length?arr.sort((x,y)=>tm(y)-tm(x)).slice(0,n).map(f).join('<br>'):'Sin actividad.';
+function pintarLog(){
+  const f=r=>`${new Date(tm(r)).toLocaleString('es')} — ${r.est?`[${esc(nombreEst(r.est))}] `:''}${esc(r.msg)}`;
+  $('logLote').innerHTML=lista(Object.values(regs.lote),f,15);
+  $('logEst').innerHTML=lista(Object.values(regs.estacion),f,30);
+  // Aprobaciones: decisiones del admin (registro) + solicitudes de los clientes (se leen de las suscripciones)
+  const todas=Object.values(subs).flatMap(m=>Object.values(m)), cnt=e=>todas.filter(x=>x.estado===e).length;
+  $('logTot').innerHTML=[['Solicitudes',todas.length],['Aprobadas',cnt('activa')],['Rechazadas',cnt('rechazada')],['Pendientes',cnt('pendiente')]].map(([n,v])=>`<span class="tag">${n}: ${v}</span>`).join('');
+  const sol=todas.map(x=>({t:x.creada,msg:`Cliente ${x.email} solicitó ${lotes[x.loteId]?.nombre||x.loteId}`}));
+  $('logApr').innerHTML=lista([...Object.values(regs.aprobacion),...sol],f,20);
 }
 
 // ================= HISTÓRICO =================
