@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cosecha en renta · Fresas NFT</title>
+<title>Cosecha en renta · Fresas</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -14,6 +14,7 @@ header{display:flex;justify-content:space-between;align-items:center;padding:14p
 header h1{font-size:20px;margin:0;font-weight:800}header span{color:#9fd3b5;font-size:14px}
 main{max-width:1100px;margin:0 auto;padding:20px}h2{font-size:22px;margin:28px 0 12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--mist);border-radius:10px;padding:16px}
 .card h3{margin:0 0 6px;font-size:18px}.mut{color:var(--mut);font-size:14px}
 button{font:inherit;font-weight:600;border:0;border-radius:6px;padding:9px 14px;cursor:pointer;background:var(--leaf);color:#fff}
@@ -25,16 +26,16 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
 .bar{height:10px;background:var(--mist);border-radius:9px;overflow:hidden;margin:10px 0 6px}.bar i{display:block;height:100%;background:var(--berry)}
 .vals{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:10px 0}.vals b{font-size:20px}
 .pumps{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pumps button.on{background:var(--berry)}
-#auth{max-width:380px;margin:60px auto}.hide{display:none!important}
+#acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
 </style></head><body>
-<header><h1>Cosecha en renta · Fresas</h1><div><span id="quien"></span> <button class="sec" id="salir" onclick="auth.signOut()">Salir</button></div></header>
+<header><h1>Cosecha en renta · Fresas</h1><div><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div></header>
 <main>
-<div id="auth" class="card">
+<div id="acceso" class="card">
   <h3>Ingresa o crea tu cuenta</h3>
   <input id="em" type="email" placeholder="Correo" autocomplete="email">
   <input id="pw" type="password" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password">
-  <div class="row"><button onclick="login()">Ingresar</button><button class="sec" onclick="registro()">Crear cuenta</button></div>
+  <div class="row"><button onclick="login()">Ingresar</button><button class="sec" onclick="registro()">Crear cuenta de cliente</button></div>
   <p id="aerr" class="mut"></p>
 </div>
 
@@ -44,69 +45,115 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
   <h2>Lotes disponibles</h2><div id="disp" class="grid"></div>
 </section>
 
+<!-- CUENTA DE LA ESTACIÓN (solo ve su módulo) -->
+<section id="esp" class="hide">
+  <h2>Mi estación</h2><div id="miEst" class="grid"></div>
+</section>
+
 <!-- PROPIETARIO -->
 <section id="admin" class="hide">
+  <h2>Resumen</h2><div id="stats" class="stats"></div>
   <h2>Solicitudes pendientes</h2><div id="pend" class="grid"></div>
   <h2>Estaciones</h2><div id="ests" class="grid"></div>
-  <div class="card" style="margin-top:16px"><h3>Agregar estación</h3>
-    <p class="mut">Usa el mismo ID que pusiste en <code>ESTACION_ID</code> del firmware.</p>
-    <div class="row"><input id="eid" placeholder="ID (ej. est02)"><input id="enom" placeholder="Nombre / ubicación"></div>
-    <button onclick="addEstacion()">Agregar estación</button></div>
   <h2>Lotes</h2><div id="lotes" class="grid"></div>
   <div class="card" style="margin-top:16px"><h3>Agregar lote</h3>
-    <div class="row"><input id="lnom" placeholder="Nombre (ej. Lote A)"><select id="lest"></select><input id="ldias" type="number" value="90" min="1" title="Días de contrato"></div>
+    <p class="mut">Un lote es un grupo de plantas dentro de una estación. Puedes crear varios por estación.</p>
+    <div class="row"><input id="lnom" placeholder="Nombre (ej. Lote A)"><select id="lest" title="Estación"></select></div>
+    <div class="row"><input id="lpl" type="number" value="20" min="1" title="Número de plantas"><input id="ldias" type="number" value="90" min="1" title="Días de contrato"></div>
     <button onclick="addLote()">Agregar lote</button></div>
   <h2>Receta de fresa</h2>
   <div class="card"><div class="row" id="recForm"></div>
     <div class="row"><button onclick="guardarReceta()">Guardar receta</button></div>
-    <p class="mut">Valores iniciales de referencia: valídalos con un agrónomo. Al aprobar un lote, la receta se copia a la estación y esta opera sola.</p></div>
+    <p class="mut">Valores iniciales de referencia: valídalos con un agrónomo. Al aprobar un lote, la receta se copia a la estación.</p></div>
   <h2>Registro de actividad</h2><div class="card"><div id="log" class="mut"></div></div>
+</section>
+
+<section id="hist" class="hide">
   <h2>Histórico</h2><div class="card"><div class="row"><select id="hsel" onchange="cargarHist()"></select></div><canvas id="chart" height="110"></canvas></div>
 </section>
 </main>
 <script>
-// ===== Pega aquí la config WEB de tu proyecto (Project settings > Your apps) =====
 firebase.initializeApp({
   apiKey:"AIzaSyD_WYLEyrCp9KmUHr4ac7-zTIFImazSVT8", authDomain:"hidroponico-619dc.firebaseapp.com",
   databaseURL:"https://hidroponico-619dc-default-rtdb.firebaseio.com", projectId:"hidroponico-619dc"
 });
 const auth=firebase.auth(), db=firebase.database(), $=id=>document.getElementById(id);
-let uid=null, chart=null, lotesCache={}, subsCache={}, estsCache={};
+let uid=null, rol=null, miEst=null, chart=null, lotes={}, subs={}, ests={}, refs=[];
 const RECETA_BASE={nombre:"Fresa",phMin:5.5,phMax:6.5,tdsMin:500,tdsMax:700,tempMax:24,cicloOnMin:15,cicloOffMin:15,dosisSeg:2,esperaMin:10,nivelVacioCm:30};
 const DAY=86400000, fmt=t=>new Date(t).toLocaleDateString('es');
+const nombreEst=i=>ests[i]?.info?.nombre||i;
 const log=m=>db.ref('/registros').push({t:Date.now(),msg:m});
+const escucha=(path,cb,q)=>{const r=q?q(db.ref(path)):db.ref(path);r.on('value',s=>cb(s.val()));refs.push(r)};
+const enLinea=e=>{const t=e?.estado?.ultimaVez;return !!t&&(Date.now()/1000-t)<30};
 
 function login(){auth.signInWithEmailAndPassword($('em').value,$('pw').value).catch(e=>$('aerr').innerText=e.message)}
 function registro(){auth.createUserWithEmailAndPassword($('em').value,$('pw').value).catch(e=>$('aerr').innerText=e.message)}
 
+// Detecta el rol: admin, cuenta de estación (ESP32) o cliente
 auth.onAuthStateChanged(async u=>{
-  $('auth').classList.toggle('hide',!!u);$('salir').classList.toggle('hide',!u);
-  $('cliente').classList.add('hide');$('admin').classList.add('hide');
-  if(!u){$('quien').innerText='';return}
+  refs.forEach(r=>r.off());refs=[];rol=null;miEst=null;
+  ['acceso','cliente','esp','admin','hist'].forEach(i=>$(i).classList.add('hide'));
+  $('salir').classList.toggle('hide',!u);
+  if(!u){$('acceso').classList.remove('hide');$('quien').innerText='';return}
   uid=u.uid;$('quien').innerText=u.email;
-  let esAdmin=false;
-  try{esAdmin=(await db.ref('/admins/'+uid).get()).exists()}catch(e){}
-  if(esAdmin)iniciarAdmin();else iniciarCliente();
+  let admin=false;try{admin=(await db.ref('/admins/'+uid).get()).exists()}catch(e){}
+  if(admin)return iniciarAdmin();
+  let d=null;try{d=(await db.ref('/Dispositivos/'+uid).get()).val()}catch(e){}
+  if(d)iniciarEsp(d);else iniciarCliente();
 });
+
+function pintar(){
+  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend()}
+  else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
+  else if(rol==='cliente')pintarCliente();
+}
+setInterval(()=>{if(rol)pintar()},10000);
+
+// Tarjeta de estación (admin con controles, cuenta ESP solo lectura)
+function cardEst(i,adm){
+  const e=ests[i]||{},s=e.sensores||{},b=e.bombas||{},c=e.config||{};
+  const f=(v,d)=>v!==undefined?Number(v).toFixed(d):'--';
+  const ls=Object.values(lotes).filter(l=>l.estacionId===i&&l.estado==='ocupado');
+  const pl=ls.reduce((a,l)=>a+(+l.plantas||0),0);
+  const B=['Bomba1','Bomba2','Bomba3','Bomba4','BombaPrincipal'], N=['pH+','pH−','Nutri A','Nutri B','Principal'];
+  return `<div class="card"><h3>${nombreEst(i)}</h3>
+    <span class="tag ${enLinea(e)?'ok':'warn'}">${enLinea(e)?'En línea':'Sin conexión'}</span> <span class="tag">${c.activa?'Con cultivo':'Libre'}</span>
+    ${adm?`<p class="mut">${ls.length} lote(s) ocupados · ${pl} plantas</p>`:''}
+    <div class="vals"><span>pH<br><b>${f(s.pH,2)}</b></span><span>TDS ppm<br><b>${f(s.TDS,0)}</b></span><span>Solución °C<br><b>${f(s.Temperatura1,1)}</b></span>
+    <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Caudal L/min<br><b>${f(s.Flujo,2)}</b></span></div>
+    <p class="mut">Última acción: ${e.estado?.ultimaAccion||'—'}</p>
+    ${adm?`<div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
+    ${c.modo==='manual'?`<div class="pumps" style="margin-top:8px">${B.map((k,n)=>`<button class="${b[k]?'on':'sec'}" onclick="db.ref('/estaciones/${i}/bombas/${k}').set(${!b[k]})">${N[n]} ${b[k]?'ON':'OFF'}</button>`).join('')}</div>`:''}
+    <div class="row" style="margin-top:8px"><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="sec" onclick="verHist('${i}')">Histórico</button></div>`:''}</div>`;
+}
+
+// ================= CUENTA DE ESTACIÓN =================
+function iniciarEsp(d){
+  rol='esp';$('esp').classList.remove('hide');
+  if(typeof d!=='string'){$('miEst').innerHTML='<p class="mut">Esta estación aún no se vincula. Reinicia la ESP32 con el firmware nuevo.</p>';return}
+  miEst=d;$('hist').classList.remove('hide');$('hsel').classList.add('hide');
+  escucha('/estaciones/'+d,v=>{ests={[d]:v||{}};pintar()});
+  cargarHist(d);
+}
 
 // ================= CLIENTE =================
 function iniciarCliente(){
-  $('cliente').classList.remove('hide');
-  db.ref('/lotes').on('value',s=>{lotesCache=s.val()||{};pintarCliente()});
-  db.ref('/suscripciones/'+uid).on('value',s=>{subsCache=s.val()||{};pintarCliente()});
+  rol='cliente';$('cliente').classList.remove('hide');
+  escucha('/lotes',v=>{lotes=v||{};pintar()});
+  escucha('/suscripciones/'+uid,v=>{subs=v||{};pintar()});
 }
 function pintarCliente(){
-  const subs=Object.entries(subsCache), ocupados=new Set(subs.filter(([,s])=>['pendiente','activa'].includes(s.estado)).map(([,s])=>s.loteId));
-  $('misSubs').innerHTML=subs.length?subs.map(([id,s])=>{
-    const l=lotesCache[s.loteId]||{nombre:s.loteId};
+  const mis=Object.entries(subs), ocupados=new Set(mis.filter(([,s])=>['pendiente','activa'].includes(s.estado)).map(([,s])=>s.loteId));
+  $('misSubs').innerHTML=mis.length?mis.map(([id,s])=>{
+    const l=lotes[s.loteId]||{nombre:s.loteId};
     if(s.estado==='pendiente')return `<div class="card"><h3>${l.nombre}</h3><span class="tag wait">Pendiente de aprobación</span><p class="mut">El propietario revisará tu solicitud.</p></div>`;
     if(s.estado==='rechazada')return `<div class="card"><h3>${l.nombre}</h3><span class="tag warn">No aprobada</span></div>`;
     const tot=s.fechaFin-s.fechaInicio, pct=Math.min(100,Math.max(0,(Date.now()-s.fechaInicio)/tot*100)), dias=Math.ceil((s.fechaFin-Date.now())/DAY);
     return dias>0?`<div class="card"><h3>${l.nombre}</h3><span class="tag ok">En proceso</span>
-      <div class="bar"><i style="width:${pct}%"></i></div><b>Faltan ${dias} días</b><p class="mut">Contrato del ${fmt(s.fechaInicio)} al ${fmt(s.fechaFin)}</p></div>`
+      <div class="bar"><i style="width:${pct}%"></i></div><b>Faltan ${dias} días</b><p class="mut">${l.plantas||'—'} plantas · contrato del ${fmt(s.fechaInicio)} al ${fmt(s.fechaFin)}</p></div>`
       :`<div class="card"><h3>${l.nombre}</h3><span class="tag">Contrato finalizado</span><p class="mut">Terminó el ${fmt(s.fechaFin)}</p></div>`}).join(''):'<p class="mut">Aún no tienes lotes. Elige uno abajo.</p>';
-  const libres=Object.entries(lotesCache).filter(([id,l])=>l.estado==='disponible'&&!ocupados.has(id));
-  $('disp').innerHTML=libres.length?libres.map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><p class="mut">Cultivo: ${l.cultivo||'fresa'} · ${l.dias} días</p><button onclick="suscribir('${id}')">Suscribirme</button></div>`).join(''):'<p class="mut">No hay lotes disponibles ahora.</p>';
+  const libres=Object.entries(lotes).filter(([id,l])=>l.estado==='disponible'&&!ocupados.has(id));
+  $('disp').innerHTML=libres.length?libres.map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><p class="mut">${l.plantas||'—'} plantas de ${l.cultivo||'fresa'} · ${l.dias} días</p><button onclick="suscribir('${id}')">Suscribirme</button></div>`).join(''):'<p class="mut">No hay lotes disponibles ahora.</p>';
 }
 function suscribir(loteId){
   db.ref('/suscripciones/'+uid).push({loteId,uid,email:auth.currentUser.email,estado:'pendiente',creada:Date.now()});
@@ -114,50 +161,45 @@ function suscribir(loteId){
 
 // ================= PROPIETARIO =================
 function iniciarAdmin(){
-  $('admin').classList.remove('hide');
-  db.ref('/lotes').on('value',s=>{lotesCache=s.val()||{};pintarLotes()});
-  db.ref('/suscripciones').on('value',s=>{subsCache=s.val()||{};pintarPend()});
-  db.ref('/estaciones').on('value',s=>{estsCache=s.val()||{};pintarEsts()});
-  db.ref('/recetas/fresa').on('value',s=>{pintarReceta(s.val()||RECETA_BASE)});
-  db.ref('/registros').limitToLast(15).on('value',s=>{
-    $('log').innerHTML=Object.values(s.val()||{}).reverse().map(r=>`${new Date(r.t).toLocaleString('es')} — ${r.msg}`).join('<br>')||'Sin actividad.'});
+  rol='admin';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hsel').classList.remove('hide');
+  escucha('/lotes',v=>{lotes=v||{};pintar()});
+  escucha('/suscripciones',v=>{subs=v||{};pintar()});
+  escucha('/estaciones',v=>{ests=v||{};pintar()});   // las estaciones aparecen solas
+  escucha('/recetas/fresa',v=>pintarReceta(v||RECETA_BASE));
+  escucha('/registros',v=>{$('log').innerHTML=Object.values(v||{}).reverse().map(r=>`${new Date(r.t).toLocaleString('es')} — ${r.msg}`).join('<br>')||'Sin actividad.'},r=>r.limitToLast(15));
+}
+function pintarResumen(){
+  const ids=Object.keys(ests), on=ids.filter(i=>enLinea(ests[i])).length;
+  const L=Object.values(lotes), oc=L.filter(l=>l.estado==='ocupado'), pl=oc.reduce((a,l)=>a+(+l.plantas||0),0);
+  const pen=Object.values(subs).flatMap(m=>Object.values(m)).filter(s=>s.estado==='pendiente').length;
+  $('stats').innerHTML=[[on+'/'+ids.length,'Estaciones en línea'],[oc.length+'/'+L.length,'Lotes ocupados'],[pl,'Plantas en cultivo'],[pen,'Solicitudes pendientes']]
+    .map(([v,t])=>`<div class="card"><b style="font-size:28px">${v}</b><div class="mut">${t}</div></div>`).join('');
 }
 function pintarEsts(){
-  const ids=Object.keys(estsCache);
-  $('lest').innerHTML=ids.map(i=>`<option value="${i}">${estsCache[i].info?.nombre||i}</option>`).join('');
-  const hs=$('hsel'), cur=hs.value; hs.innerHTML=ids.map(i=>`<option>${i}</option>`).join(''); if(cur)hs.value=cur;
+  const ids=Object.keys(ests), ls=$('lest'), hs=$('hsel'), c1=ls.value, c2=hs.value;
+  const opts=ids.map(i=>`<option value="${i}">${nombreEst(i)}</option>`).join('');
+  ls.innerHTML=opts;hs.innerHTML=opts;if(c1)ls.value=c1;if(c2)hs.value=c2;
   if(!chart&&ids.length)cargarHist();
-  const B=['Bomba1','Bomba2','Bomba3','Bomba4','BombaPrincipal'], N=['pH+','pH−','Nutri A','Nutri B','Principal'];
-  $('ests').innerHTML=ids.length?ids.map(i=>{const e=estsCache[i],s=e.sensores||{},b=e.bombas||{},c=e.config||{};
-    const online=e.estado?.ultimaVez&&(Date.now()/1000-e.estado.ultimaVez)<30;
-    const f=(v,d)=>v!==undefined?Number(v).toFixed(d):'--';
-    return `<div class="card"><h3>${e.info?.nombre||i}</h3>
-    <span class="tag ${online?'ok':'warn'}">${online?'En línea':'Sin conexión'}</span> <span class="tag">${c.activa?'Lote activo':'Sin lote'}</span>
-    <div class="vals"><span>pH<br><b>${f(s.pH,2)}</b></span><span>TDS ppm<br><b>${f(s.TDS,0)}</b></span><span>Solución °C<br><b>${f(s.Temperatura1,1)}</b></span>
-    <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Caudal L/min<br><b>${f(s.Flujo,2)}</b></span></div>
-    <p class="mut">Última acción: ${e.estado?.ultimaAccion||'—'}</p>
-    <div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
-    ${c.modo==='manual'?`<div class="pumps" style="margin-top:8px">${B.map((k,n)=>`<button class="${b[k]?'on':'sec'}" onclick="db.ref('/estaciones/${i}/bombas/${k}').set(${!b[k]})">${N[n]} ${b[k]?'ON':'OFF'}</button>`).join('')}</div>`:''}</div>`}).join(''):'<p class="mut">Agrega tu primera estación abajo.</p>';
+  $('ests').innerHTML=ids.length?ids.map(i=>cardEst(i,true)).join(''):'<p class="mut">Aún no hay estaciones. Cada ESP32 aparece aquí sola al conectarse.</p>';
 }
-function setModo(i,m){db.ref('/estaciones/'+i+'/config/modo').set(m);log(`Estación ${i} en modo ${m}`)}
-function addEstacion(){const id=$('eid').value.trim();if(!id)return;
-  db.ref('/estaciones/'+id+'/info').set({nombre:$('enom').value||id}).then(()=>{db.ref('/estaciones/'+id+'/config/modo').set('auto');log('Estación agregada: '+id);$('eid').value=''})}
+function setModo(i,m){db.ref('/estaciones/'+i+'/config/modo').set(m);log(`${nombreEst(i)} en modo ${m}`)}
+function renombrar(i){const n=prompt('Nombre de la estación',nombreEst(i));if(n&&n.trim())db.ref('/estaciones/'+i+'/info/nombre').set(n.trim())}
 function addLote(){const n=$('lnom').value.trim(),e=$('lest').value;if(!n||!e)return;
-  db.ref('/lotes').push({nombre:n,estacionId:e,cultivo:'fresa',dias:+$('ldias').value||90,estado:'disponible'});log('Lote agregado: '+n);$('lnom').value=''}
+  db.ref('/lotes').push({nombre:n,estacionId:e,cultivo:'fresa',plantas:+$('lpl').value||1,dias:+$('ldias').value||90,estado:'disponible'});log('Lote agregado: '+n);$('lnom').value=''}
 function pintarLotes(){
   const c={disponible:'ok',ocupado:'wait'};
-  $('lotes').innerHTML=Object.entries(lotesCache).map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><span class="tag ${c[l.estado]||''}">${l.estado}</span>
-    <p class="mut">Estación ${l.estacionId} · ${l.dias} días${l.fechaFin?` · hasta ${fmt(l.fechaFin)}`:''}</p>
-    ${l.estado==='ocupado'?`<button class="sec" onclick="liberar('${id}')">Liberar lote</button>`:''}</div>`).join('')||'<p class="mut">Sin lotes.</p>';
-  pintarPend();
+  $('lotes').innerHTML=Object.entries(lotes).map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><span class="tag ${c[l.estado]||''}">${l.estado}</span>
+    <p class="mut">${nombreEst(l.estacionId)} · ${l.plantas||'—'} plantas · ${l.dias} días${l.fechaFin?` · hasta ${fmt(l.fechaFin)}`:''}</p>
+    ${l.estado==='ocupado'?`<button class="sec" onclick="liberar('${id}')">Liberar lote</button>`:`<button class="sec" onclick="eliminarLote('${id}')">Eliminar</button>`}</div>`).join('')||'<p class="mut">Sin lotes.</p>';
 }
+function eliminarLote(id){if(confirm('¿Eliminar este lote?'))db.ref('/lotes/'+id).remove()}
 function pintarPend(){
-  const p=[];Object.entries(subsCache).forEach(([u,m])=>Object.entries(m).forEach(([id,s])=>{if(s.estado==='pendiente')p.push([u,id,s])}));
-  $('pend').innerHTML=p.length?p.map(([u,id,s])=>`<div class="card"><h3>${lotesCache[s.loteId]?.nombre||s.loteId}</h3><p class="mut">${s.email}<br>${fmt(s.creada)}</p>
+  const p=[];Object.entries(subs).forEach(([u,m])=>Object.entries(m).forEach(([id,s])=>{if(s.estado==='pendiente')p.push([u,id,s])}));
+  $('pend').innerHTML=p.length?p.map(([u,id,s])=>`<div class="card"><h3>${lotes[s.loteId]?.nombre||s.loteId}</h3><p class="mut">${s.email}<br>${fmt(s.creada)}</p>
     <div class="row"><button onclick="aprobar('${u}','${id}')">Aprobar</button><button class="red" onclick="rechazar('${u}','${id}')">Rechazar</button></div></div>`).join(''):'<p class="mut">Nada pendiente.</p>';
 }
 async function aprobar(u,id){
-  const s=subsCache[u][id], l=lotesCache[s.loteId]; if(!l||l.estado!=='disponible'){alert('El lote ya no está disponible.');return}
+  const s=subs[u][id], l=lotes[s.loteId]; if(!l||l.estado!=='disponible'){alert('El lote ya no está disponible.');return}
   const rec=(await db.ref('/recetas/fresa').get()).val()||RECETA_BASE, ini=Date.now(), fin=ini+l.dias*DAY, up={};
   up[`/suscripciones/${u}/${id}/estado`]='activa';up[`/suscripciones/${u}/${id}/fechaInicio`]=ini;up[`/suscripciones/${u}/${id}/fechaFin`]=fin;
   up[`/lotes/${s.loteId}/estado`]='ocupado';up[`/lotes/${s.loteId}/clienteUid`]=u;up[`/lotes/${s.loteId}/fechaFin`]=fin;
@@ -165,14 +207,18 @@ async function aprobar(u,id){
   await db.ref().update(up);log(`Aprobado ${s.email} en ${l.nombre}`);
 }
 function rechazar(u,id){db.ref(`/suscripciones/${u}/${id}/estado`).set('rechazada');log('Solicitud rechazada')}
-async function liberar(id){const l=lotesCache[id];
-  await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:false});log('Lote liberado: '+l.nombre)}
+async function liberar(id){
+  const l=lotes[id], otros=Object.entries(lotes).some(([k,x])=>k!==id&&x.estacionId===l.estacionId&&x.estado==='ocupado');
+  await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:otros});
+  log('Lote liberado: '+l.nombre)}
 
 const REC=[['phMin','pH mín'],['phMax','pH máx'],['tdsMin','TDS mín'],['tdsMax','TDS máx'],['tempMax','Temp máx °C'],['cicloOnMin','Bomba ON min'],['cicloOffMin','Bomba OFF min'],['dosisSeg','Dosis seg'],['esperaMin','Espera min'],['nivelVacioCm','Tanque vacío cm']];
 function pintarReceta(r){$('recForm').innerHTML=REC.map(([k,n])=>`<label>${n}<input id="r_${k}" type="number" step="any" value="${r[k]??RECETA_BASE[k]}"></label>`).join('')}
 function guardarReceta(){const r={nombre:'Fresa'};REC.forEach(([k])=>r[k]=+$('r_'+k).value);db.ref('/recetas/fresa').set(r);log('Receta de fresa actualizada')}
 
-function cargarHist(){const id=$('hsel').value;if(!id)return;
+// ================= HISTÓRICO =================
+function verHist(i){$('hsel').value=i;cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
+function cargarHist(id){id=id||$('hsel').value;if(!id)return;
   db.ref('/historial/'+id).orderByChild('t').limitToLast(300).once('value',s=>{
     const d=Object.values(s.val()||{});const ds=(k,n,c)=>({label:n,data:d.map(x=>x[k]),borderColor:c,pointRadius:0,tension:.3});
     if(chart)chart.destroy();
