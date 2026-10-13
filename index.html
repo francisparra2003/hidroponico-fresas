@@ -31,6 +31,7 @@ label{display:block;min-width:140px;font-size:13px;font-weight:600;color:var(--m
 pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12px;border-radius:6px;font-size:13px;user-select:all}
 .log{max-height:260px;overflow:auto;line-height:1.7}.sub{margin:18px 0 6px;padding-top:12px;border-top:1px solid var(--mist);font-size:16px}
 input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:center;font-weight:400;color:var(--ink);margin:4px 0}
+.selbox{border:1px solid #c5d3ca;border-radius:6px;padding:8px 10px;max-height:240px;overflow:auto;background:#fff;margin:4px 0 10px}.grp{font-weight:600;font-size:13px;color:var(--leaf);margin:10px 0 2px}
 #acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
 </style></head><body>
@@ -89,16 +90,20 @@ input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:c
 <section id="hist" class="hide">
   <h2>Histórico</h2>
   <div class="card">
-    <div class="row"><label>Estación<select id="hsel" onchange="cargarHist()"></select></label><label>Desde<input id="hd" type="date" onchange="cargarHist()"></label><label>Hasta<input id="hh" type="date" onchange="cargarHist()"></label></div>
-    <canvas id="chart" height="110"></canvas>
+    <div class="row" style="align-items:flex-start">
+      <div id="hselBox" style="flex:2;min-width:260px"><label style="margin-bottom:4px">Lotes <span class="mut">(elige lotes o estaciones; puedes combinarlos)</span></label>
+        <div><button class="sec" onclick="selTodo(true)">Todas las estaciones</button> <button class="sec" onclick="selTodo(false)">Ninguno</button></div>
+        <div id="hSel" class="selbox"></div></div>
+      <label>Desde<input id="hd" type="date" onchange="cargarHist()"></label>
+      <label>Hasta<input id="hh" type="date" onchange="cargarHist()"></label>
+      <label>Variable<select id="hvar" onchange="cargarHist()"><option value="todas">pH, TDS y temp. (con 1 selección)</option><option value="pH">pH</option><option value="TDS">TDS</option><option value="Temperatura1">Temperatura</option></select></label>
+    </div>
+    <canvas id="chart" height="110"></canvas><p id="hNota" class="mut"></p>
   </div>
   <div class="card hide" id="xlsCard" style="margin-top:16px"><h3>Descargar Excel</h3>
-    <p class="mut">Usa el periodo de arriba (sin fechas baja todo el histórico). Puedes combinar estaciones y lotes: de un lote se exportan las lecturas de su estación durante su contrato.</p>
-    <div class="row" style="align-items:flex-start">
-      <div><b>Estaciones</b> <button class="sec" onclick="selTodo('e',true)">Todas</button> <button class="sec" onclick="selTodo('e',false)">Ninguna</button><div id="xEst"></div></div>
-      <div><b>Lotes</b> <button class="sec" onclick="selTodo('l',true)">Todos</button> <button class="sec" onclick="selTodo('l',false)">Ninguno</button><div id="xLote"></div></div>
-    </div>
-    <button style="margin-top:10px" onclick="descargarExcel()">Descargar Excel</button> <span id="xMsg" class="mut"></span>
+    <p class="mut">Descarga lo que tengas seleccionado arriba, con el mismo periodo (sin fechas baja todo el histórico). De un lote se exportan las lecturas de su estación durante su contrato.</p>
+    <p id="xResumen" class="mut"></p>
+    <button onclick="descargarExcel()">Descargar Excel</button> <span id="xMsg" class="mut"></span>
   </div>
 </section>
 </main>
@@ -164,7 +169,7 @@ function cardEst(i,adm){
 function iniciarEsp(d){
   rol='esp';$('esp').classList.remove('hide');
   if(typeof d!=='string'){$('miEst').innerHTML='<p class="mut">Esta estación aún no se vincula. Reinicia la ESP32 con el firmware nuevo.</p>';return}
-  miEst=d;$('hist').classList.remove('hide');$('hsel').parentElement.classList.add('hide');$('xlsCard').classList.add('hide');
+  miEst=d;$('hist').classList.remove('hide');$('hselBox').classList.add('hide');$('xlsCard').classList.add('hide');
   escucha('/estaciones/'+d,v=>{ests={[d]:v||{}};pintar()});
   cargarHist(d);
 }
@@ -201,12 +206,12 @@ function suscribir(loteId){
 
 // ================= PROPIETARIO =================
 function iniciarAdmin(){
-  rol='admin';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hsel').parentElement.classList.remove('hide');$('xlsCard').classList.remove('hide');
+  rol='admin';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hselBox').classList.remove('hide');$('xlsCard').classList.remove('hide');
   escucha('/lotes',v=>{lotes=v||{};pintar()});
   escucha('/suscripciones',v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
   escucha('/estaciones',v=>{ests=v||{};pintar()});   // las estaciones aparecen solas
-  escucharRegistros();
+  escucharRegistros();cargarHist();
 }
 function pintarResumen(){
   const ids=Object.keys(ests), on=ids.filter(i=>enLinea(ests[i])).length;
@@ -223,11 +228,9 @@ function cardPend(i){
 }
 function pintarEsts(){
   const ids=Object.keys(ests), aut=ids.filter(i=>hab[i]), por=ids.filter(i=>!hab[i]);
-  const ls=$('lest'), hs=$('hsel'), c1=ls.value, c2=hs.value;
+  const ls=$('lest'), c1=ls.value;
   ls.innerHTML=aut.length?aut.map(i=>`<option value="${i}">${nombreEst(i)}</option>`).join(''):'<option value="">Sin estaciones autorizadas</option>';
-  hs.innerHTML=ids.map(i=>`<option value="${i}">${nombreEst(i)}</option>`).join('');
-  if(c1)ls.value=c1;if(c2)hs.value=c2;
-  if(!chart&&ids.length)cargarHist();
+  if(c1)ls.value=c1;
   $('pendEst').innerHTML=por.length?por.map(i=>cardPend(i)).join(''):'<p class="mut">Ninguna estación espera autorización. Las ESP32 nuevas aparecen aquí al conectarse.</p>';
   $('ests').innerHTML=aut.length?aut.map(i=>cardEst(i,true)).join(''):'<p class="mut">Aún no hay estaciones autorizadas.</p>';
 }
@@ -339,32 +342,59 @@ function pintarLog(){
 }
 
 // ================= HISTÓRICO =================
-function verHist(i){$('hsel').value=i;cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
+function verHist(i){selE.clear();selL.clear();selE.add(i);sigSel='';pintarSel();cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
 function qHist(id,a,b,lim){
   let q=db.ref('/historial/'+id).orderByChild('t');
   if(a>-Infinity)q=q.startAt(Math.floor(a/1000));
   if(b<Infinity)q=q.endAt(Math.floor(b/1000));
   return q.limitToLast(lim);
 }
-function cargarHist(id){id=(typeof id==='string'&&id)||$('hsel').value||miEst;if(!id)return;
-  const [a,b]=rango('hd','hh');
-  qHist(id,a,b,(a>-Infinity||b<Infinity)?1500:300).once('value',s=>{
-    const d=Object.values(s.val()||{});const ds=(k,n,c)=>({label:n,data:d.map(x=>x[k]),borderColor:c,pointRadius:0,tension:.3});
+let tH=null;
+const PAL=['#d62f4b','#2f6b4a','#14231b','#e08a00','#3b6fd4','#8a3fb5','#0d9488','#9a6b3c'];
+function cargarHist(){
+  // cuenta de estación: solo su propia estación; admin: lo seleccionado (lotes y/o estaciones)
+  const items=rol==='esp'?(miEst?[['e',miEst]]:[]):[...[...selE].map(i=>['e',i]),...[...selL].filter(k=>lotes[k]).map(k=>['l',k])];
+  const [a,b]=rango('hd','hh'), vsel=$('hvar').value, todas=vsel==='todas'&&items.length===1, v=vsel==='todas'?'pH':vsel;
+  const estDe=([t,id])=>t==='e'?id:lotes[id].estacionId;
+  const contratos=k=>Object.values(subs).flatMap(m=>Object.values(m)).filter(x=>x.loteId===k&&x.estado==='activa');
+  const sts=[...new Set(items.map(estDe))];
+  Promise.all(sts.map(e=>qHist(e,a,b,1500).once('value').then(sn=>[e,Object.values(sn.val()||{}).sort((p,q)=>p.t-q.t)]))).then(r=>{
+    const datos=Object.fromEntries(r), series=[], sinDatos=[], base={pointRadius:0,tension:.3};
+    items.forEach((it,n)=>{
+      const [t,id]=it; let rows=datos[estDe(it)]||[], nom;
+      if(t==='l'){const w=contratos(id);rows=rows.filter(x=>w.some(c=>x.t*1000>=c.fechaInicio&&x.t*1000<=c.fechaFin));nom=`${lotes[id].nombre} (${nombreEst(lotes[id].estacionId)})`}
+      else nom=nombreEst(id);
+      if(!rows.length)sinDatos.push(nom);
+      const pt=k=>rows.filter(x=>x[k]!==undefined).map(x=>({x:x.t*1000,y:x[k]}));
+      if(todas)series.push({...base,label:'pH',data:pt('pH'),borderColor:PAL[0]},{...base,label:'Temp °C',data:pt('Temperatura1'),borderColor:PAL[1]},{...base,label:'TDS ppm',data:pt('TDS'),borderColor:PAL[2],yAxisID:'y2'});
+      else series.push({...base,label:nom,data:pt(v),borderColor:PAL[n%PAL.length]});
+    });
     if(chart)chart.destroy();
-    chart=new Chart($('chart'),{type:'line',data:{labels:d.map(x=>new Date(x.t*1000).toLocaleString('es',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})),
-      datasets:[ds('pH','pH','#d62f4b'),ds('Temperatura1','Temp °C','#2f6b4a'),{...ds('TDS','TDS ppm','#14231b'),yAxisID:'y2'}]},
-      options:{scales:{y2:{position:'right',grid:{drawOnChartArea:false}}}}})})}
+    chart=new Chart($('chart'),{type:'line',data:{datasets:series},options:{parsing:false,
+      scales:{x:{type:'linear',ticks:{maxTicksLimit:8,callback:t=>new Date(t).toLocaleString('es',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}},
+        y2:{position:'right',display:todas,grid:{drawOnChartArea:false}}},
+      plugins:{tooltip:{callbacks:{title:i=>new Date(i[0].parsed.x).toLocaleString('es')}}}}});
+    $('hNota').textContent=!items.length?'Selecciona lotes o estaciones para ver la gráfica.':(sinDatos.length?'Sin lecturas en el periodo para: '+sinDatos.join(', ')+' (un lote solo tiene lecturas durante su contrato).':'');
+  });
+}
 
-// ---- Selección múltiple para el Excel (estaciones y lotes, combinables) ----
+// ---- Selección múltiple: lotes agrupados por estación; al final, las estaciones sin lotes ----
 const selE=new Set(), selL=new Set(); let sigSel='';
-function selTog(t,id,on){const S=t==='e'?selE:selL;on?S.add(id):S.delete(id)}
-function selTodo(t,on){const S=t==='e'?selE:selL;S.clear();if(on)Object.keys(t==='e'?ests:lotes).forEach(i=>S.add(i));sigSel='';pintarSel()}
+function resumenSel(){$('xResumen').textContent=`Selección: ${selE.size} estación(es) y ${selL.size} lote(s).`}
+function selTog(t,id,on){(t==='e'?selE:selL)[on?'add':'delete'](id);resumenSel();clearTimeout(tH);tH=setTimeout(cargarHist,300)}
+function selTodo(on){selE.clear();selL.clear();if(on)Object.keys(ests).forEach(i=>selE.add(i));sigSel='';pintarSel();cargarHist()}
 function pintarSel(){
-  const ei=Object.keys(ests), li=Object.entries(lotes);
-  const sig=JSON.stringify([ei.map(i=>[i,nombreEst(i)]),li.map(([k,l])=>[k,l.nombre,l.estacionId])]);
+  resumenSel();
+  const ei=Object.keys(ests), li=Object.entries(lotes), por={};
+  li.forEach(([k,l])=>(por[l.estacionId]=por[l.estacionId]||[]).push([k,l]));
+  const sig=JSON.stringify([ei.map(i=>[i,nombreEst(i)]),li.map(([k,l])=>[k,l.nombre,l.plantas,l.estado,l.estacionId])]);
   if(sig===sigSel)return;sigSel=sig;   // solo se redibuja si cambian las listas
-  $('xEst').innerHTML=ei.map(i=>`<label class="chk"><input type="checkbox" ${selE.has(i)?'checked':''} onchange="selTog('e','${i}',this.checked)">${esc(nombreEst(i))}</label>`).join('')||'<span class="mut">Sin estaciones</span>';
-  $('xLote').innerHTML=li.map(([k,l])=>`<label class="chk"><input type="checkbox" ${selL.has(k)?'checked':''} onchange="selTog('l','${k}',this.checked)">${esc(l.nombre)}&nbsp;<span class="mut">(${esc(nombreEst(l.estacionId))})</span></label>`).join('')||'<span class="mut">Sin lotes</span>';
+  const chk=(t,id,txt)=>`<label class="chk" style="padding-left:12px"><input type="checkbox" ${(t==='e'?selE:selL).has(id)?'checked':''} onchange="selTog('${t}','${id}',this.checked)">${txt}</label>`;
+  const sin=ei.filter(i=>!por[i]);
+  $('hSel').innerHTML=Object.keys(por).map(e=>`<div class="grp">Estación: ${esc(nombreEst(e))}</div>`+chk('e',e,'Toda la estación')
+      +por[e].map(([k,l])=>chk('l',k,`${esc(l.nombre)}&nbsp;<span class="mut">· ${l.plantas||'—'} plantas${l.estado==='ocupado'?' · ocupado':''}</span>`)).join('')).join('')
+    +(sin.length?'<div class="grp">Estaciones sin lotes</div>'+sin.map(i=>chk('e',i,esc(nombreEst(i)))).join(''):'')
+    ||'<span class="mut">Aún no hay estaciones ni lotes.</span>';
 }
 async function descargarExcel(){
   const msg=$('xMsg');
