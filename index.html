@@ -7,6 +7,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--ink:#14231b;--leaf:#2f6b4a;--berry:#d62f4b;--mist:#e3ebe6;--bg:#f3f6f4;--card:#fff;--mut:#5b6b62}
 *{box-sizing:border-box}body{margin:0;font-family:'Bricolage Grotesque',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
@@ -29,6 +30,7 @@ input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px
 label{display:block;min-width:140px;font-size:13px;font-weight:600;color:var(--mut)}
 pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12px;border-radius:6px;font-size:13px;user-select:all}
 .log{max-height:260px;overflow:auto;line-height:1.7}.sub{margin:18px 0 6px;padding-top:12px;border-top:1px solid var(--mist);font-size:16px}
+input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:center;font-weight:400;color:var(--ink);margin:4px 0}
 #acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
 @media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
 </style></head><body>
@@ -72,17 +74,32 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12p
     <p class="mut">Con el modo elegido la estación controla sola el pH, los nutrientes y la bomba del tanque.</p>
     <button onclick="addLote()">Agregar lote</button></div>
   <h2>Registro de actividad</h2>
+  <div class="card" style="margin-bottom:16px"><div class="row"><label>Desde<input id="rd" type="date" onchange="escucharRegistros()"></label><label>Hasta<input id="rh" type="date" onchange="escucharRegistros()"></label><button class="sec" style="align-self:center" onclick="limpiarRegistro()">Quitar periodo</button></div>
+    <p class="mut">El periodo filtra las dos secciones de abajo. Sin fechas se muestran los registros más recientes.</p></div>
   <div class="card"><h3>Operación de lotes</h3>
     <div id="logLote" class="mut log"></div>
     <h4 class="sub">Acciones de las estaciones</h4>
     <div id="logEst" class="mut log"></div></div>
   <div class="card" style="margin-top:16px"><h3>Aprobaciones</h3>
+    <p class="mut">Toca un estado para filtrar; vuelve a tocarlo para ver todo.</p>
     <div id="logTot" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
     <div id="logApr" class="mut log"></div></div>
 </section>
 
 <section id="hist" class="hide">
-  <h2>Histórico</h2><div class="card"><div class="row"><select id="hsel" onchange="cargarHist()"></select></div><canvas id="chart" height="110"></canvas></div>
+  <h2>Histórico</h2>
+  <div class="card">
+    <div class="row"><label>Estación<select id="hsel" onchange="cargarHist()"></select></label><label>Desde<input id="hd" type="date" onchange="cargarHist()"></label><label>Hasta<input id="hh" type="date" onchange="cargarHist()"></label></div>
+    <canvas id="chart" height="110"></canvas>
+  </div>
+  <div class="card hide" id="xlsCard" style="margin-top:16px"><h3>Descargar Excel</h3>
+    <p class="mut">Usa el periodo de arriba (sin fechas baja todo el histórico). Puedes combinar estaciones y lotes: de un lote se exportan las lecturas de su estación durante su contrato.</p>
+    <div class="row" style="align-items:flex-start">
+      <div><b>Estaciones</b> <button class="sec" onclick="selTodo('e',true)">Todas</button> <button class="sec" onclick="selTodo('e',false)">Ninguna</button><div id="xEst"></div></div>
+      <div><b>Lotes</b> <button class="sec" onclick="selTodo('l',true)">Todos</button> <button class="sec" onclick="selTodo('l',false)">Ninguno</button><div id="xLote"></div></div>
+    </div>
+    <button style="margin-top:10px" onclick="descargarExcel()">Descargar Excel</button> <span id="xMsg" class="mut"></span>
+  </div>
 </section>
 </main>
 <script>
@@ -118,7 +135,7 @@ auth.onAuthStateChanged(async u=>{
 });
 
 function pintar(){
-  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog()}
+  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel()}
   else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
   else if(rol==='cliente')pintarCliente();
 }
@@ -147,7 +164,7 @@ function cardEst(i,adm){
 function iniciarEsp(d){
   rol='esp';$('esp').classList.remove('hide');
   if(typeof d!=='string'){$('miEst').innerHTML='<p class="mut">Esta estación aún no se vincula. Reinicia la ESP32 con el firmware nuevo.</p>';return}
-  miEst=d;$('hist').classList.remove('hide');$('hsel').classList.add('hide');
+  miEst=d;$('hist').classList.remove('hide');$('hsel').parentElement.classList.add('hide');$('xlsCard').classList.add('hide');
   escucha('/estaciones/'+d,v=>{ests={[d]:v||{}};pintar()});
   cargarHist(d);
 }
@@ -184,12 +201,12 @@ function suscribir(loteId){
 
 // ================= PROPIETARIO =================
 function iniciarAdmin(){
-  rol='admin';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hsel').classList.remove('hide');
+  rol='admin';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hsel').parentElement.classList.remove('hide');$('xlsCard').classList.remove('hide');
   escucha('/lotes',v=>{lotes=v||{};pintar()});
   escucha('/suscripciones',v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
   escucha('/estaciones',v=>{ests=v||{};pintar()});   // las estaciones aparecen solas
-  ['lote','estacion','aprobacion'].forEach(t=>escucha('/registros',v=>{regs[t]=v||{};pintarLog()},r=>r.orderByChild('tipo').equalTo(t).limitToLast(t==='estacion'?30:15)));
+  escucharRegistros();
 }
 function pintarResumen(){
   const ids=Object.keys(ests), on=ids.filter(i=>enLinea(ests[i])).length;
@@ -202,7 +219,7 @@ function cardPend(i){
   const e=ests[i]||{},x=e.sensores||{};
   return `<div class="card"><h3>${nombreEst(i)}</h3><span class="tag wait">Por autorizar</span> <span class="tag ${enLinea(e)?'ok':'warn'}">${enLinea(e)?'En línea':'Sin conexión'}</span>
     <p class="mut">ID: ${i}${e.info?.ip?' · IP '+e.info.ip:''}<br>pH ${x.pH!==undefined?Number(x.pH).toFixed(2):'--'} · TDS ${x.TDS!==undefined?Number(x.TDS).toFixed(0):'--'} ppm<br>Aún no se ofrece a los clientes.</p>
-    <div class="row"><button onclick="autorizar('${i}')">Autorizar</button><button class="sec" onclick="renombrar('${i}')">Renombrar</button></div></div>`;
+    <div class="row"><button onclick="autorizar('${i}')">Autorizar</button><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="red" onclick="eliminarEstacion('${i}')">Eliminar</button></div></div>`;
 }
 function pintarEsts(){
   const ids=Object.keys(ests), aut=ids.filter(i=>hab[i]), por=ids.filter(i=>!hab[i]);
@@ -223,6 +240,15 @@ function autorizar(i){
   const up={['/habilitadas/'+i]:{nombre:nombreEst(i)}};
   if(!ests[i]?.config?.modo)up['/estaciones/'+i+'/config/modo']='auto';
   db.ref().update(up).then(()=>log('Estación autorizada: '+nombreEst(i),'aprobacion'))}
+async function eliminarEstacion(i){
+  const nom=nombreEst(i);
+  if(Object.values(lotes).some(l=>l.estacionId===i&&l.estado==='ocupado')){alert('Esta estación tiene lotes ocupados. Libéralos primero.');return}
+  if(!confirm(`¿Eliminar la estación ${nom}? Se borran sus datos, su histórico y sus lotes libres. Si la ESP32 sigue encendida ya no podrá registrarse.`))return;
+  const up={['/estaciones/'+i]:null,['/historial/'+i]:null,['/habilitadas/'+i]:null};
+  Object.entries(lotes).forEach(([k,l])=>{if(l.estacionId===i)up['/lotes/'+k]=null});
+  try{Object.entries((await db.ref('/Dispositivos').get()).val()||{}).forEach(([u,v])=>{if(v===i)up['/Dispositivos/'+u]=null})}catch(e){}
+  await db.ref().update(up);log('Estación eliminada: '+nom,'aprobacion');
+}
 function deshabilitar(i){
   if(Object.values(lotes).some(l=>l.estacionId===i&&l.estado==='ocupado')){alert('Libera primero los lotes ocupados de esta estación.');return}
   if(confirm('¿Deshabilitar esta estación? Los clientes dejarán de ver sus lotes.'))db.ref('/habilitadas/'+i).remove().then(()=>log('Estación deshabilitada: '+nombreEst(i),'aprobacion'))}
@@ -248,7 +274,7 @@ async function aprobar(u,id){
   Object.entries({activa:true,modo:'auto',cultivo:l.cultivo||'frutilla'}).forEach(([k,v])=>up[`/estaciones/${l.estacionId}/config/${k}`]=v);
   await db.ref().update(up);log(`Aprobado ${s.email} en ${l.nombre}`,'aprobacion');log(`${l.nombre} asignado a ${s.email} por ${l.dias} días`,'lote',l.estacionId);
 }
-function rechazar(u,id){const s=subs[u][id];db.ref(`/suscripciones/${u}/${id}/estado`).set('rechazada');log(`Rechazada la solicitud de ${s.email} para ${lotes[s.loteId]?.nombre||s.loteId}`,'aprobacion')}
+function rechazar(u,id){const s=subs[u][id];db.ref(`/suscripciones/${u}/${id}`).update({estado:'rechazada',resuelta:Date.now()});log(`Rechazada la solicitud de ${s.email} para ${lotes[s.loteId]?.nombre||s.loteId}`,'aprobacion')}
 async function liberar(id){
   const l=lotes[id], otros=Object.entries(lotes).some(([k,x])=>k!==id&&x.estacionId===l.estacionId&&x.estado==='ocupado');
   await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:otros});
@@ -280,25 +306,107 @@ async function addEstacion(){
 
 // ================= REGISTRO =================
 const tm=r=>r.t<1e11?r.t*1000:r.t;   // las estaciones guardan segundos, la web milisegundos
+const rango=(d,h)=>[$(d).value?new Date($(d).value+'T00:00:00').getTime():-Infinity,$(h).value?new Date($(h).value+'T23:59:59.999').getTime():Infinity];
 const lista=(arr,f,n)=>arr.length?arr.sort((x,y)=>tm(y)-tm(x)).slice(0,n).map(f).join('<br>'):'Sin actividad.';
+let filtroApr=null, regRefs=[];
+function setFiltroApr(k){filtroApr=filtroApr===k?null:k;pintarLog()}
+function limpiarRegistro(){$('rd').value='';$('rh').value='';escucharRegistros()}
+function escucharRegistros(){
+  regRefs.forEach(r=>r.off());regRefs=[];
+  const conPeriodo=!!($('rd').value||$('rh').value);
+  ['lote','estacion','aprobacion'].forEach(t=>{
+    const r=db.ref('/registros').orderByChild('tipo').equalTo(t).limitToLast(conPeriodo?2000:(t==='estacion'?30:15));
+    r.on('value',sn=>{regs[t]=sn.val()||{};pintarLog()});regRefs.push(r);refs.push(r);
+  });
+}
 function pintarLog(){
+  const [a,b]=rango('rd','rh'), hay=a>-Infinity||b<Infinity, enR=r=>{const m=tm(r);return m>=a&&m<=b};
   const f=r=>`${new Date(tm(r)).toLocaleString('es')} — ${r.est?`[${esc(nombreEst(r.est))}] `:''}${esc(r.msg)}`;
-  $('logLote').innerHTML=lista(Object.values(regs.lote),f,15);
-  $('logEst').innerHTML=lista(Object.values(regs.estacion),f,30);
-  // Aprobaciones: decisiones del admin (registro) + solicitudes de los clientes (se leen de las suscripciones)
-  const todas=Object.values(subs).flatMap(m=>Object.values(m)), cnt=e=>todas.filter(x=>x.estado===e).length;
-  $('logTot').innerHTML=[['Solicitudes',todas.length],['Aprobadas',cnt('activa')],['Rechazadas',cnt('rechazada')],['Pendientes',cnt('pendiente')]].map(([n,v])=>`<span class="tag">${n}: ${v}</span>`).join('');
-  const sol=todas.map(x=>({t:x.creada,msg:`Cliente ${x.email} solicitó ${lotes[x.loteId]?.nombre||x.loteId}`}));
-  $('logApr').innerHTML=lista([...Object.values(regs.aprobacion),...sol],f,20);
+  const L=(o,n)=>lista(Object.values(o).filter(enR),f,hay?500:n);
+  $('logLote').innerHTML=L(regs.lote,15);
+  $('logEst').innerHTML=L(regs.estacion,30);
+  // Aprobaciones: se arman desde las suscripciones, así cada estado tiene su propio listado
+  const todas=Object.values(subs).flatMap(m=>Object.values(m)), N=x=>lotes[x.loteId]?.nombre||x.loteId, ET={pendiente:'pendiente',activa:'aprobada',rechazada:'rechazada'};
+  const S={
+    solicitudes:todas.map(x=>({t:x.creada,msg:`Cliente ${x.email} solicitó ${N(x)} (${ET[x.estado]||x.estado})`})),
+    aprobadas:todas.filter(x=>x.estado==='activa').map(x=>({t:x.fechaInicio,msg:`Aprobado ${x.email} en ${N(x)}`})),
+    rechazadas:todas.filter(x=>x.estado==='rechazada').map(x=>({t:x.resuelta||x.creada,msg:`Rechazada la solicitud de ${x.email} para ${N(x)}`})),
+    pendientes:todas.filter(x=>x.estado==='pendiente').map(x=>({t:x.creada,msg:`${x.email} espera aprobación de ${N(x)}`}))};
+  Object.keys(S).forEach(k=>S[k]=S[k].filter(enR));
+  const T={solicitudes:'Solicitudes',aprobadas:'Aprobadas',rechazadas:'Rechazadas',pendientes:'Pendientes'};
+  $('logTot').innerHTML=Object.keys(T).map(k=>`<button class="${filtroApr===k?'':'sec'}" onclick="setFiltroApr('${k}')">${T[k]}: ${S[k].length}</button>`).join('');
+  $('logApr').innerHTML=lista(filtroApr?S[filtroApr]:[...Object.values(regs.aprobacion).filter(enR),...S.solicitudes],f,hay?500:20);
 }
 
 // ================= HISTÓRICO =================
 function verHist(i){$('hsel').value=i;cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
-function cargarHist(id){id=id||$('hsel').value;if(!id)return;
-  db.ref('/historial/'+id).orderByChild('t').limitToLast(300).once('value',s=>{
+function qHist(id,a,b,lim){
+  let q=db.ref('/historial/'+id).orderByChild('t');
+  if(a>-Infinity)q=q.startAt(Math.floor(a/1000));
+  if(b<Infinity)q=q.endAt(Math.floor(b/1000));
+  return q.limitToLast(lim);
+}
+function cargarHist(id){id=(typeof id==='string'&&id)||$('hsel').value||miEst;if(!id)return;
+  const [a,b]=rango('hd','hh');
+  qHist(id,a,b,(a>-Infinity||b<Infinity)?1500:300).once('value',s=>{
     const d=Object.values(s.val()||{});const ds=(k,n,c)=>({label:n,data:d.map(x=>x[k]),borderColor:c,pointRadius:0,tension:.3});
     if(chart)chart.destroy();
-    chart=new Chart($('chart'),{type:'line',data:{labels:d.map(x=>new Date(x.t*1000).toLocaleString('es',{day:'numeric',hour:'2-digit',minute:'2-digit'})),
+    chart=new Chart($('chart'),{type:'line',data:{labels:d.map(x=>new Date(x.t*1000).toLocaleString('es',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})),
       datasets:[ds('pH','pH','#d62f4b'),ds('Temperatura1','Temp °C','#2f6b4a'),{...ds('TDS','TDS ppm','#14231b'),yAxisID:'y2'}]},
       options:{scales:{y2:{position:'right',grid:{drawOnChartArea:false}}}}})})}
+
+// ---- Selección múltiple para el Excel (estaciones y lotes, combinables) ----
+const selE=new Set(), selL=new Set(); let sigSel='';
+function selTog(t,id,on){const S=t==='e'?selE:selL;on?S.add(id):S.delete(id)}
+function selTodo(t,on){const S=t==='e'?selE:selL;S.clear();if(on)Object.keys(t==='e'?ests:lotes).forEach(i=>S.add(i));sigSel='';pintarSel()}
+function pintarSel(){
+  const ei=Object.keys(ests), li=Object.entries(lotes);
+  const sig=JSON.stringify([ei.map(i=>[i,nombreEst(i)]),li.map(([k,l])=>[k,l.nombre,l.estacionId])]);
+  if(sig===sigSel)return;sigSel=sig;   // solo se redibuja si cambian las listas
+  $('xEst').innerHTML=ei.map(i=>`<label class="chk"><input type="checkbox" ${selE.has(i)?'checked':''} onchange="selTog('e','${i}',this.checked)">${esc(nombreEst(i))}</label>`).join('')||'<span class="mut">Sin estaciones</span>';
+  $('xLote').innerHTML=li.map(([k,l])=>`<label class="chk"><input type="checkbox" ${selL.has(k)?'checked':''} onchange="selTog('l','${k}',this.checked)">${esc(l.nombre)}&nbsp;<span class="mut">(${esc(nombreEst(l.estacionId))})</span></label>`).join('')||'<span class="mut">Sin lotes</span>';
+}
+async function descargarExcel(){
+  const msg=$('xMsg');
+  if(!selE.size&&!selL.size){msg.textContent='Selecciona al menos una estación o un lote.';return}
+  msg.textContent='Preparando…';
+  try{
+    const [a,b]=rango('hd','hh');
+    // contratos activos por lote: de ahí salen las ventanas de fechas de cada lote
+    const vent={};Object.values(subs).flatMap(m=>Object.values(m)).filter(x=>x.estado==='activa').forEach(x=>(vent[x.loteId]=vent[x.loteId]||[]).push(x));
+    const en=(k,ms)=>(vent[k]||[]).filter(v=>ms>=v.fechaInicio&&ms<=v.fechaFin);
+    const ids=new Set([...selE,...[...selL].map(k=>lotes[k]?.estacionId).filter(Boolean)]), filas=[];
+    for(const id of ids){
+      const snap=await qHist(id,a,b,50000).once('value'), delLote=Object.entries(lotes).filter(([,l])=>l.estacionId===id);
+      Object.values(snap.val()||{}).forEach(x=>{
+        const ms=x.t*1000, act=delLote.filter(([k])=>en(k,ms).length);
+        if(!selE.has(id)&&!act.some(([k])=>selL.has(k)))return;   // estación elegida O lote elegido activo en ese momento
+        filas.push({ms,id,act,x});
+      });
+    }
+    if(!filas.length){msg.textContent='No hay lecturas con esos filtros.';return}
+    filas.sort((p,q)=>p.ms-q.ms||p.id.localeCompare(q.id));
+    const z=n=>String(n).padStart(2,'0'), fh=ms=>{const d=new Date(ms);return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`};
+    const num=(v,d)=>v===undefined||isNaN(v)?'':+Number(v).toFixed(d);
+    const datos=filas.map(({ms,id,act,x})=>({'Fecha y hora':fh(ms),'Estación':nombreEst(id),'ID estación':id,
+      'Lote':act.map(([,l])=>l.nombre).join(', ')||'—','Plantas':act.reduce((n,[,l])=>n+(+l.plantas||0),0)||'',
+      'Cliente':[...new Set(act.flatMap(([k])=>en(k,ms).map(v=>v.email)))].join(', ')||'—',
+      'pH':num(x.pH,2),'TDS (ppm)':num(x.TDS,0),'Temp solución (°C)':num(x.Temperatura1,1)}));
+    const st=(rs,k)=>{const v=rs.map(r=>r.x[k]).filter(n=>n!==undefined&&!isNaN(n)).map(Number);
+      return v.length?{p:v.reduce((s,n)=>s+n,0)/v.length,mn:v.reduce((m,n)=>Math.min(m,n),Infinity),mx:v.reduce((m,n)=>Math.max(m,n),-Infinity)}:{}};
+    const grupos=[...selE].map(i=>['Estación',nombreEst(i),nombreEst(i),filas.filter(r=>r.id===i)])
+      .concat([...selL].filter(k=>lotes[k]).map(k=>['Lote',lotes[k].nombre,nombreEst(lotes[k].estacionId),filas.filter(r=>r.id===lotes[k].estacionId&&r.act.some(([kk])=>kk===k))]));
+    const resumen=grupos.map(([tipo,nom,est,rs])=>{const p=st(rs,'pH'),t=st(rs,'TDS'),c=st(rs,'Temperatura1');
+      return {'Tipo':tipo,'Nombre':nom,'Estación':est,'Muestras':rs.length,'pH prom':num(p.p,2),'pH mín':num(p.mn,2),'pH máx':num(p.mx,2),'TDS prom':num(t.p,0),'TDS mín':num(t.mn,0),'TDS máx':num(t.mx,0),'Temp prom (°C)':num(c.p,1)}});
+    const filtros=[['Periodo desde',$('hd').value||'(sin límite)'],['Periodo hasta',$('hh').value||'(sin límite)'],
+      ['Estaciones',[...selE].map(nombreEst).join(', ')||'—'],['Lotes',[...selL].map(k=>lotes[k]?.nombre).filter(Boolean).join(', ')||'—'],['Generado',fh(Date.now())]];
+    const wsD=XLSX.utils.json_to_sheet(datos);wsD['!cols']=[{wch:20},{wch:18},{wch:12},{wch:16},{wch:9},{wch:26},{wch:8},{wch:10},{wch:18}];
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,wsD,'Datos');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen),'Resumen');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(filtros),'Filtros');
+    XLSX.writeFile(wb,`historico_${fh(Date.now()).slice(0,10)}.xlsx`);
+    msg.textContent=`Listo: ${datos.length} lecturas.`;
+  }catch(e){msg.textContent='Error: '+e.message}
+}
 </script></body></html>
