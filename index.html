@@ -2,43 +2,67 @@
 <html lang="es"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cosecha en renta · Frutilla</title>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&family=Fraunces:wght@600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-:root{--ink:#14231b;--leaf:#2f6b4a;--berry:#d62f4b;--mist:#e3ebe6;--bg:#f3f6f4;--card:#fff;--mut:#5b6b62}
-*{box-sizing:border-box}body{margin:0;font-family:'Bricolage Grotesque',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
-header{display:flex;justify-content:space-between;align-items:center;padding:14px 24px;background:var(--ink);color:#fff}
-header h1{font-size:20px;margin:0;font-weight:800}header span{color:#9fd3b5;font-size:14px}
-main{max-width:1100px;margin:0 auto;padding:20px}h2{font-size:22px;margin:28px 0 12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
-.card{background:var(--card);border:1px solid var(--mist);border-radius:10px;padding:16px}
-.card h3{margin:0 0 6px;font-size:18px}.mut{color:var(--mut);font-size:14px}
-button{font:inherit;font-weight:600;border:0;border-radius:6px;padding:9px 14px;cursor:pointer;background:var(--leaf);color:#fff}
-button.sec{background:var(--mist);color:var(--ink)}button.red{background:var(--berry)}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--berry);outline-offset:2px}
-input,select{font:inherit;padding:9px;border:1px solid #c5d3ca;border-radius:6px;width:100%;margin:4px 0 10px}
-.row{display:flex;gap:8px;flex-wrap:wrap}.row>*{flex:1}
-.tag{display:inline-block;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:600;background:var(--mist)}
-.tag.ok{background:#cfe9d9;color:#1d5a3a}.tag.warn{background:#fde2e6;color:#9a1b32}.tag.wait{background:#fff0c2;color:#7a5a00}
-.bar{height:10px;background:var(--mist);border-radius:9px;overflow:hidden;margin:10px 0 6px}.bar i{display:block;height:100%;background:var(--berry)}
-.vals{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:10px 0}.vals b{font-size:20px}
-.pumps{display:grid;grid-template-columns:1fr 1fr;gap:6px}.pumps button.on{background:var(--berry)}
+:root{--deep:#12261b;--ink:#14231b;--leaf:#2f6b4a;--leaf2:#3f8a5f;--accent:#2f6b4a;--berry:#d62f4b;--berry2:#f05a73;--mist:#e3ebe6;--bg:#f6f4ee;--card:#fff;--mut:#5b6b62;--tint:#f1f6f2;--line:#e4eae5;--sh:0 1px 2px rgba(20,35,27,.06),0 10px 26px -10px rgba(20,35,27,.14)}
+@media(prefers-color-scheme:dark){:root{--ink:#e9f2ec;--accent:#7fd1a0;--bg:#0e1913;--card:#15251c;--mist:#243629;--mut:#9db3a6;--tint:#1a2d22;--line:#27402f;--sh:0 1px 2px rgba(0,0,0,.4),0 12px 28px -10px rgba(0,0,0,.6)}
+.tag.ok{background:#1f4a33!important;color:#a8e6c2!important}.tag.warn{background:#4a1f29!important;color:#ffb3c0!important}.tag.wait{background:#4a3d12!important;color:#ffe08a!important}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:'Bricolage Grotesque',system-ui,sans-serif;color:var(--ink);background:radial-gradient(900px 420px at 95% -5%,rgba(214,47,75,.10),transparent 60%),radial-gradient(900px 480px at -5% 8%,rgba(47,107,74,.15),transparent 55%),var(--bg)}
+header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 24px;background:linear-gradient(120deg,var(--deep),#1d4a33);color:#fff;box-shadow:0 8px 24px -12px rgba(0,0,0,.6)}
+.brand{display:flex;align-items:center;gap:12px}.logo{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;font-size:23px;background:rgba(255,255,255,.14)}
+header h1{font:700 20px/1.1 'Fraunces',serif;margin:0}header small{display:block;color:#9fd3b5;font-size:12px;margin-top:2px}
+.who{display:flex;align-items:center;gap:10px;font-size:14px;color:#cfe9da}.chip{padding:3px 12px;border-radius:99px;background:rgba(255,255,255,.16);font-size:12px;font-weight:600}.chip:empty{display:none}
+main{max-width:1120px;margin:0 auto;padding:8px 20px 64px}
+h2{font:700 25px/1.2 'Fraunces',serif;margin:38px 0 14px;display:flex;align-items:center;gap:10px}
+h2::before{content:'';width:7px;height:26px;border-radius:6px;background:linear-gradient(var(--berry),var(--leaf))}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:var(--sh);transition:transform .2s}
+.grid>.card:hover{transform:translateY(-3px)}
+.card h3{margin:0 0 8px;font:700 18px 'Fraunces',serif}
+.stats .card{position:relative;overflow:hidden;background:linear-gradient(145deg,var(--card),var(--tint))}
+.stats .card::after{content:'';position:absolute;right:-20px;top:-20px;width:76px;height:76px;border-radius:50%;background:radial-gradient(circle,rgba(214,47,75,.2),transparent 70%)}
+.stats .card b{font:700 34px 'Fraunces',serif!important;color:var(--accent)}
+.mut{color:var(--mut);font-size:14px;line-height:1.55}
+button{font:inherit;font-weight:600;border:0;border-radius:99px;padding:9px 18px;cursor:pointer;background:linear-gradient(135deg,var(--leaf),var(--leaf2));color:#fff;box-shadow:0 4px 12px -4px rgba(47,107,74,.65);transition:transform .15s,filter .15s}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}button:active{transform:scale(.97)}
+button.sec{background:var(--mist);color:var(--ink);box-shadow:none}
+button.red{background:linear-gradient(135deg,var(--berry),var(--berry2));box-shadow:0 4px 12px -4px rgba(214,47,75,.65)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid rgba(214,47,75,.45);outline-offset:2px}
+input,select{font:inherit;color:var(--ink);padding:10px 12px;border:1px solid var(--line);border-radius:12px;width:100%;margin:4px 0 10px;background:var(--tint)}
+input:focus,select:focus{border-color:var(--leaf);background:var(--card)}
+input[type=checkbox]{width:auto;margin:0 8px 0 0;accent-color:var(--berry)}
 label{display:block;min-width:140px;font-size:13px;font-weight:600;color:var(--mut)}
-pre{white-space:pre-wrap;word-break:break-all;background:var(--mist);padding:12px;border-radius:6px;font-size:13px;user-select:all}
-.log{max-height:260px;overflow:auto;line-height:1.7}.sub{margin:18px 0 6px;padding-top:12px;border-top:1px solid var(--mist);font-size:16px}
-input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:center;font-weight:400;color:var(--ink);margin:4px 0}
-.selbox{border:1px solid #c5d3ca;border-radius:6px;padding:8px 10px;max-height:240px;overflow:auto;background:#fff;margin:4px 0 10px}.grp{font-weight:600;font-size:13px;color:var(--leaf);margin:10px 0 2px}
-#acceso{max-width:380px;margin:60px auto}.hide{display:none!important}
-@media(prefers-reduced-motion:no-preference){.bar i{transition:width .6s}}
+.chk{display:flex;align-items:center;font-weight:400;color:var(--ink);margin:5px 0}
+.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:3px 11px;border-radius:99px;font-size:12.5px;font-weight:600;background:var(--mist);color:var(--ink)}
+.tag::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;opacity:.6}
+.tag.ok{background:#d6efe0;color:#1d5a3a}.tag.warn{background:#fde2e6;color:#9a1b32}.tag.wait{background:#fff0c2;color:#7a5a00}
+.bar{height:12px;background:var(--mist);border-radius:99px;overflow:hidden;margin:12px 0 8px}.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--leaf2),var(--berry))}
+.vals{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}.vals br{display:none}
+.vals span{background:var(--tint);border-radius:14px;padding:9px 12px;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.vals b{display:block;font:700 23px 'Fraunces',serif;letter-spacing:0;text-transform:none;color:var(--ink)}
+.log{max-height:260px;overflow:auto;line-height:1.85;background:var(--tint);border-radius:14px;padding:12px 14px;font-size:13.5px}
+.sub{margin:18px 0 8px;padding-top:12px;border-top:1px dashed var(--line);font:700 16px 'Fraunces',serif}
+pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px dashed var(--leaf);padding:12px;border-radius:12px;font-size:13px;user-select:all}
+.dd{position:relative;margin:4px 0 10px}.dd summary{padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--tint);cursor:pointer;list-style:none;color:var(--ink);font-weight:400;font-size:16px}.dd summary::-webkit-details-marker{display:none}.dd summary::after{content:'▾';float:right}.dd[open] summary::after{content:'▴'}
+.ddp{position:absolute;z-index:10;left:0;right:0;margin-top:6px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;max-height:320px;overflow:auto;box-shadow:0 16px 36px -12px rgba(0,0,0,.4)}
+.grp{font-weight:700;font-size:13px;color:var(--accent);margin:10px 0 2px}
+#acceso{max-width:420px;margin:48px auto;padding:30px;text-align:center}#acceso .hero{font-size:48px;line-height:1;margin-bottom:6px}#acceso h3{font-size:26px}
+.hide{display:none!important}
+@keyframes subir{from{opacity:0;transform:translateY(10px)}}
+@media(prefers-reduced-motion:no-preference){section:not(.hide),#acceso{animation:subir .5s both}.bar i{transition:width .6s}}
 </style></head><body>
-<header><h1>Cosecha en renta · Frutilla</h1><div><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div></header>
+<header><div class="brand"><div class="logo">🍓</div><div><h1>Cosecha en renta</h1><small>Frutilla hidropónica</small></div></div><div class="who"><span class="chip" id="rolTag"></span><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div></header>
 <main>
 <div id="acceso" class="card">
-  <h3>Ingresa o crea tu cuenta</h3>
+  <div class="hero">🍓</div><h3>Cosecha en renta</h3><p class="mut">Frutilla hidropónica monitoreada en tiempo real. Ingresa o crea tu cuenta.</p>
   <input id="em" type="email" placeholder="Correo" autocomplete="email">
   <input id="pw" type="password" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password">
   <div class="row"><button onclick="login()">Ingresar</button><button class="sec" onclick="registro()">Crear cuenta de cliente</button></div>
@@ -48,7 +72,7 @@ input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:c
 <!-- CLIENTE -->
 <section id="cliente" class="hide">
   <h2>Mi cultivo</h2><div id="misSubs" class="grid"></div>
-  <h2>Estaciones disponibles</h2><div id="disp"></div>
+  <h2>Estaciones disponibles · crea tu pedido</h2><div id="disp" class="grid"></div>
 </section>
 
 <!-- CUENTA DE LA ESTACIÓN (solo ve su módulo) -->
@@ -59,21 +83,15 @@ input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:c
 <!-- PROPIETARIO -->
 <section id="admin" class="hide">
   <h2>Resumen</h2><div id="stats" class="stats"></div>
-  <h2>Solicitudes pendientes</h2><div id="pend" class="grid"></div>
+  <h2>Pedidos pendientes</h2><div id="pend" class="grid"></div>
   <h2>Estaciones por autorizar</h2><div id="pendEst" class="grid"></div>
   <h2>Estaciones autorizadas</h2><div id="ests" class="grid"></div>
   <div class="card" style="margin-top:16px"><h3>Agregar estación</h3>
     <p class="mut">Cada ESP32 usa su propia cuenta. Aquí se crea y obtienes los 3 datos para cargar en su firmware. Cuando esa ESP32 se conecte, la estación pasa a "En línea". Las estaciones creadas aquí ya quedan autorizadas; las que se detecten solas esperan tu autorización arriba.</p>
-    <div class="row"><label>ID de la estación<input id="eid" placeholder="Ej. est02"></label><label>Nombre (opcional)<input id="enom" placeholder="Ej. Invernadero 2"></label></div>
+    <div class="row"><label>ID de la estación<input id="eid" placeholder="Ej. est02"></label><label>Nombre (opcional)<input id="enom" placeholder="Ej. Invernadero 2"></label><label>Capacidad (plantas)<input id="ecap" type="number" value="40" min="1"></label></div>
     <button onclick="addEstacion()">Crear estación</button>
     <pre id="eres" class="hide" style="margin-top:12px"></pre></div>
-  <h2>Lotes</h2><div id="lotes" class="grid"></div>
-  <div class="card" style="margin-top:16px"><h3>Agregar lote</h3>
-    <p class="mut">Un lote es un grupo de plantas dentro de una estación. Puedes crear varios por estación.</p>
-    <div class="row"><label>Nombre del lote<input id="lnom" placeholder="Ej. Lote A"></label><label>Estación<select id="lest"></select></label></div>
-    <div class="row"><label>Número de plantas<input id="lpl" type="number" value="20" min="1"></label><label>Días de contrato<input id="ldias" type="number" value="90" min="1"></label><label>Modo de cultivo<select id="lcul"><option value="frutilla">Frutilla</option></select></label></div>
-    <p class="mut">Con el modo elegido la estación controla sola el pH, los nutrientes y la bomba del tanque.</p>
-    <button onclick="addLote()">Agregar lote</button></div>
+  <h2>Lotes</h2><p class="mut">Los lotes se crean cuando apruebas el pedido de un cliente.</p><div id="lotes" class="grid"></div>
   <h2>Registro de actividad</h2>
   <div class="card" style="margin-bottom:16px"><div class="row"><label>Desde<input id="rd" type="date" onchange="escucharRegistros()"></label><label>Hasta<input id="rh" type="date" onchange="escucharRegistros()"></label><button class="sec" style="align-self:center" onclick="limpiarRegistro()">Quitar periodo</button></div>
     <p class="mut">El periodo filtra las dos secciones de abajo. Sin fechas se muestran los registros más recientes.</p></div>
@@ -91,9 +109,9 @@ input[type=checkbox]{width:auto;margin:0 8px 0 0}.chk{display:flex;align-items:c
   <h2>Histórico</h2>
   <div class="card">
     <div class="row" style="align-items:flex-start">
-      <div id="hselBox" style="flex:2;min-width:260px"><label style="margin-bottom:4px">Lotes <span class="mut">(elige lotes o estaciones; puedes combinarlos)</span></label>
-        <div><button class="sec" onclick="selTodo(true)">Todas las estaciones</button> <button class="sec" onclick="selTodo(false)">Ninguno</button></div>
-        <div id="hSel" class="selbox"></div></div>
+      <div id="hselBox" style="flex:2;min-width:260px"><label style="margin-bottom:4px">Lotes</label>
+        <details id="hDD" class="dd"><summary id="hSum">Elegir lotes o estaciones</summary>
+          <div class="ddp"><div style="margin-bottom:6px"><button class="sec" onclick="selTodo(true)">Todas las estaciones</button> <button class="sec" onclick="selTodo(false)">Ninguno</button></div><div id="hSel"></div></div></details></div>
       <label>Desde<input id="hd" type="date" onchange="cargarHist()"></label>
       <label>Hasta<input id="hh" type="date" onchange="cargarHist()"></label>
       <label>Variable<select id="hvar" onchange="cargarHist()"><option value="todas">pH, TDS y temp. (con 1 selección)</option><option value="pH">pH</option><option value="TDS">TDS</option><option value="Temperatura1">Temperatura</option></select></label>
@@ -113,10 +131,12 @@ const FB_CFG={
   databaseURL:"https://hidroponico-619dc-default-rtdb.firebaseio.com", projectId:"hidroponico-619dc"
 };
 firebase.initializeApp(FB_CFG);
+{const cs=getComputedStyle(document.documentElement);Chart.defaults.color=cs.getPropertyValue('--mut').trim();Chart.defaults.borderColor=cs.getPropertyValue('--line').trim();Chart.defaults.font.family="'Bricolage Grotesque',system-ui,sans-serif"}
 const auth=firebase.auth(), db=firebase.database(), $=id=>document.getElementById(id);
 let uid=null, rol=null, miEst=null, chart=null, lotes={}, subs={}, ests={}, hab={}, regs={lote:{},estacion:{},aprobacion:{}}, refs=[];
 const DAY=86400000, fmt=t=>new Date(t).toLocaleDateString('es');
 const nombreEst=i=>ests[i]?.info?.nombre||i;
+const nomPed=x=>lotes[x.loteId]?.nombre||`${x.plantas||'—'} plantas en ${x.estacionNombre||x.estacionId}`;
 const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // tipo: 'lote' (operación de lotes) | 'estacion' (acciones de estaciones) | 'aprobacion' (decisiones del admin)
 const log=(m,tipo,est)=>{const r={t:Date.now(),tipo:tipo||'general',msg:m};if(est)r.est=est;db.ref('/registros').push(r)};
@@ -131,7 +151,7 @@ auth.onAuthStateChanged(async u=>{
   refs.forEach(r=>r.off());refs=[];rol=null;miEst=null;
   ['acceso','cliente','esp','admin','hist'].forEach(i=>$(i).classList.add('hide'));
   $('salir').classList.toggle('hide',!u);
-  if(!u){$('acceso').classList.remove('hide');$('quien').innerText='';return}
+  if(!u){$('acceso').classList.remove('hide');$('quien').innerText='';$('rolTag').textContent='';return}
   uid=u.uid;$('quien').innerText=u.email;
   let admin=false;try{admin=(await db.ref('/admins/'+uid).get()).exists()}catch(e){}
   if(admin)return iniciarAdmin();
@@ -155,19 +175,19 @@ function cardEst(i,adm){
   const eb=e.estado?.bombas||{}, P=[['Bomba1','pH+'],['Bomba2','pH−'],['Bomba3','Nutri A'],['Bomba4','Nutri B'],['BombaPrincipal','Tanque']];
   return `<div class="card"><h3>${nombreEst(i)}</h3>
     <span class="tag ${enLinea(e)?'ok':'warn'}">${enLinea(e)?'En línea':'Sin conexión'}</span> <span class="tag">${c.activa?'Con cultivo':'Libre'}</span>
-    ${adm?`<p class="mut">${ls.length} lote(s) ocupados · ${pl} plantas</p>`:''}
+    ${adm?`<p class="mut">${ls.length} lote(s) ocupados · ${pl} de ${hab[i]?.capacidad||'—'} plantas</p>`:''}
     <div class="vals"><span>pH<br><b>${f(s.pH,2)}</b></span><span>TDS ppm<br><b>${f(s.TDS,0)}</b></span><span>Solución °C<br><b>${f(s.Temperatura1,1)}</b></span>
     <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Caudal L/min<br><b>${f(s.Flujo,2)}</b></span></div>
     <p class="mut">Cultivo: ${c.cultivo||'—'} · ${c.modo==='manual'?'Manual':'Automático'}<br>Última acción: ${e.estado?.ultimaAccion||'—'}</p>
     <div style="display:flex;gap:4px;flex-wrap:wrap">${P.map(([k,n])=>`<span class="tag ${eb[k]?'ok':''}">${n} ${eb[k]?'ON':'OFF'}</span>`).join('')}</div>
     ${adm?`<div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
     ${c.modo==='manual'?`<button class="${b.BombaPrincipal?'red':'sec'}" style="margin-top:8px;width:100%" onclick="bombaTanque('${i}',${!b.BombaPrincipal})">Bomba del tanque ${b.BombaPrincipal?'ON':'OFF'}</button><p class="mut">En manual solo controlas la bomba del tanque; las de nutrientes se detienen.</p>`:''}
-    <div class="row" style="margin-top:8px"><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="sec" onclick="verHist('${i}')">Histórico</button><button class="sec" onclick="deshabilitar('${i}')">Deshabilitar</button></div>`:''}</div>`;
+    <div class="row" style="margin-top:8px"><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="sec" onclick="verHist('${i}')">Histórico</button><button class="sec" onclick="capacidad('${i}')">Capacidad</button><button class="sec" onclick="deshabilitar('${i}')">Deshabilitar</button></div>`:''}</div>`;
 }
 
 // ================= CUENTA DE ESTACIÓN =================
 function iniciarEsp(d){
-  rol='esp';$('esp').classList.remove('hide');
+  rol='esp';$('rolTag').textContent='Estación';$('esp').classList.remove('hide');
   if(typeof d!=='string'){$('miEst').innerHTML='<p class="mut">Esta estación aún no se vincula. Reinicia la ESP32 con el firmware nuevo.</p>';return}
   miEst=d;$('hist').classList.remove('hide');$('hselBox').classList.add('hide');$('xlsCard').classList.add('hide');
   escucha('/estaciones/'+d,v=>{ests={[d]:v||{}};pintar()});
@@ -176,37 +196,49 @@ function iniciarEsp(d){
 
 // ================= CLIENTE =================
 function iniciarCliente(){
-  rol='cliente';$('cliente').classList.remove('hide');
+  rol='cliente';$('rolTag').textContent='Cliente';$('cliente').classList.remove('hide');
   escucha('/lotes',v=>{lotes=v||{};pintar()});
   escucha('/suscripciones/'+uid,v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
 }
-const nomCli=l=>hab[l.estacionId]?.nombre||l.estacionNombre||l.estacionId;
-const datos=l=>l.estacionId?`Estación: ${nomCli(l)} · Plantas: ${l.plantas||'—'} · Contrato: ${l.dias} días`:'';
+const nomCli=(id,fb)=>hab[id]?.nombre||fb||id;
+function datosSub(s){const l=lotes[s.loteId]||{},e=s.estacionId||l.estacionId;
+  return e?`Estación: ${esc(nomCli(e,s.estacionNombre||l.estacionNombre))} · Plantas: ${s.plantas||l.plantas||'—'} · Contrato: ${s.dias||l.dias} días`:''}
+let ultDisp='';
 function pintarCliente(){
-  const mis=Object.entries(subs), ocupados=new Set(mis.filter(([,s])=>['pendiente','activa'].includes(s.estado)).map(([,s])=>s.loteId));
+  const mis=Object.entries(subs).sort((x,y)=>(y[1].creada||0)-(x[1].creada||0));
   $('misSubs').innerHTML=mis.length?mis.map(([id,s])=>{
-    const l=lotes[s.loteId]||{nombre:s.loteId};
-    if(s.estado==='pendiente')return `<div class="card"><h3>${l.nombre}</h3><span class="tag wait">Pendiente de aprobación</span><p class="mut">${datos(l)}<br>El propietario revisará tu solicitud.</p></div>`;
-    if(s.estado==='rechazada')return `<div class="card"><h3>${l.nombre}</h3><span class="tag warn">No aprobada</span><p class="mut">${datos(l)}</p></div>`;
+    const l=lotes[s.loteId]||{}, tit=esc(l.nombre||`Pedido de ${s.plantas||'—'} plantas`);
+    if(s.estado==='pendiente')return `<div class="card"><h3>${tit}</h3><span class="tag wait">Pedido pendiente de aprobación</span><p class="mut">${datosSub(s)}<br>El propietario revisará tu pedido.</p></div>`;
+    if(s.estado==='rechazada')return `<div class="card"><h3>${tit}</h3><span class="tag warn">No aprobado</span><p class="mut">${datosSub(s)}</p></div>`;
     const tot=s.fechaFin-s.fechaInicio, pct=Math.min(100,Math.max(0,(Date.now()-s.fechaInicio)/tot*100)), dias=Math.ceil((s.fechaFin-Date.now())/DAY);
-    return dias>0?`<div class="card"><h3>${l.nombre}</h3><span class="tag ok">En proceso</span>
-      <div class="bar"><i style="width:${pct}%"></i></div><b>Faltan ${dias} días</b><p class="mut">${datos(l)}<br>Del ${fmt(s.fechaInicio)} al ${fmt(s.fechaFin)}</p></div>`
-      :`<div class="card"><h3>${l.nombre}</h3><span class="tag">Contrato finalizado</span><p class="mut">${datos(l)}<br>Terminó el ${fmt(s.fechaFin)}</p></div>`}).join(''):'<p class="mut">Aún no tienes lotes. Elige uno abajo.</p>';
-  // Solo se ofrecen lotes de estaciones que el admin autorizó, agrupados por estación
-  const libres=Object.entries(lotes).filter(([id,l])=>l.estado==='disponible'&&hab[l.estacionId]&&!ocupados.has(id)), por={};
-  libres.forEach(([id,l])=>(por[l.estacionId]=por[l.estacionId]||[]).push([id,l]));
-  $('disp').innerHTML=Object.keys(por).length?Object.entries(por).map(([e,a])=>`<h3 style="margin:18px 0 8px">Estación: ${hab[e].nombre||e} <span class="mut">· ${a.length} lote(s) libre(s) · ${a.reduce((n,[,l])=>n+(+l.plantas||0),0)} plantas</span></h3>
-    <div class="grid">${a.map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><p class="mut">${datos(l)}<br>Cultivo: ${l.cultivo||'frutilla'}</p><button onclick="suscribir('${id}')">Suscribirme</button></div>`).join('')}</div>`).join('')
-    :'<p class="mut">No hay estaciones con lotes disponibles ahora.</p>';
+    return dias>0&&l.estado!=='finalizado'?`<div class="card"><h3>${tit}</h3><span class="tag ok">En proceso</span>
+      <div class="bar"><i style="width:${pct}%"></i></div><b>Faltan ${dias} días</b><p class="mut">${datosSub(s)}<br>Del ${fmt(s.fechaInicio)} al ${fmt(s.fechaFin)}</p></div>`
+      :`<div class="card"><h3>${tit}</h3><span class="tag">Contrato finalizado</span><p class="mut">${datosSub(s)}<br>Del ${fmt(s.fechaInicio)} al ${fmt(s.fechaFin)}</p></div>`}).join(''):'<p class="mut">Aún no tienes pedidos. Elige una estación abajo.</p>';
+  // Solo estaciones autorizadas por el admin; la disponibilidad sale de la capacidad menos los lotes ocupados
+  const html=Object.entries(hab).map(([id,h])=>{
+    const cap=+h.capacidad||0, lib=cap-usados(id), pct=cap?Math.min(100,(cap-lib)/cap*100):0;
+    return `<div class="card"><h3>Estación: ${esc(h.nombre||id)}</h3>`+(!cap
+      ?'<span class="tag wait">Capacidad por definir</span><p class="mut">El propietario aún no define cuántas plantas admite.</p>'
+      :`<span class="tag ${lib>0?'ok':'warn'}">${lib>0?'Disponible':'Completa'}</span><div class="bar"><i style="width:${pct}%"></i></div><p class="mut">Plantas libres: <b>${Math.max(0,lib)}</b> de ${cap}</p>`
+        +(lib>0?`<label>Número de plantas<input id="pl_${id}" type="number" min="1" max="${lib}" value="${Math.min(20,lib)}"></label>
+        <label>Días de contrato<input id="di_${id}" type="number" min="1" value="90"></label>
+        <label>Modo de cultivo<select id="cu_${id}"><option value="frutilla">Frutilla</option></select></label>
+        <button onclick="pedir('${id}')">Crear pedido</button>`:''))+`</div>`}).join('')||'<p class="mut">Aún no hay estaciones autorizadas.</p>';
+  if(html!==ultDisp&&!$('disp').contains(document.activeElement)){ultDisp=html;$('disp').innerHTML=html}   // no pisa lo que el cliente está escribiendo
 }
-function suscribir(loteId){
-  db.ref('/suscripciones/'+uid).push({loteId,uid,email:auth.currentUser.email,estado:'pendiente',creada:Date.now()});
+// El pedido es el lote que pide el cliente; el lote real se crea cuando el admin lo aprueba
+function pedir(e){
+  const h=hab[e], lib=(+h?.capacidad||0)-usados(e), pl=parseInt($('pl_'+e).value,10), di=parseInt($('di_'+e).value,10);
+  if(!pl||pl<1||pl>lib){alert('Elige entre 1 y '+Math.max(0,lib)+' plantas.');return}
+  if(!di||di<1){alert('Indica los días de contrato.');return}
+  db.ref('/suscripciones/'+uid).push({estacionId:e,estacionNombre:h.nombre||e,plantas:pl,dias:di,cultivo:$('cu_'+e).value,uid,email:auth.currentUser.email,estado:'pendiente',creada:Date.now()})
+    .then(()=>alert('Pedido enviado. El propietario lo revisará.'));
 }
 
 // ================= PROPIETARIO =================
 function iniciarAdmin(){
-  rol='admin';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hselBox').classList.remove('hide');$('xlsCard').classList.remove('hide');
+  rol='admin';$('rolTag').textContent='Propietario';['admin','hist'].forEach(i=>$(i).classList.remove('hide'));$('hselBox').classList.remove('hide');$('xlsCard').classList.remove('hide');
   escucha('/lotes',v=>{lotes=v||{};pintar()});
   escucha('/suscripciones',v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
@@ -228,9 +260,6 @@ function cardPend(i){
 }
 function pintarEsts(){
   const ids=Object.keys(ests), aut=ids.filter(i=>hab[i]), por=ids.filter(i=>!hab[i]);
-  const ls=$('lest'), c1=ls.value;
-  ls.innerHTML=aut.length?aut.map(i=>`<option value="${i}">${nombreEst(i)}</option>`).join(''):'<option value="">Sin estaciones autorizadas</option>';
-  if(c1)ls.value=c1;
   $('pendEst').innerHTML=por.length?por.map(i=>cardPend(i)).join(''):'<p class="mut">Ninguna estación espera autorización. Las ESP32 nuevas aparecen aquí al conectarse.</p>';
   $('ests').innerHTML=aut.length?aut.map(i=>cardEst(i,true)).join(''):'<p class="mut">Aún no hay estaciones autorizadas.</p>';
 }
@@ -240,9 +269,11 @@ function renombrar(i){const n=prompt('Nombre de la estación',nombreEst(i));if(!
   const up={['/estaciones/'+i+'/info/nombre']:n.trim()};if(hab[i])up['/habilitadas/'+i+'/nombre']=n.trim();db.ref().update(up)}
 // Autorizar = la estación detectada queda visible para que se creen lotes y los clientes los vean
 function autorizar(i){
-  const up={['/habilitadas/'+i]:{nombre:nombreEst(i)}};
+  const c=parseInt(prompt('Capacidad de la estación (número de plantas):','40'),10);if(!c||c<1)return;
+  const up={['/habilitadas/'+i]:{nombre:nombreEst(i),capacidad:c}};
   if(!ests[i]?.config?.modo)up['/estaciones/'+i+'/config/modo']='auto';
   db.ref().update(up).then(()=>log('Estación autorizada: '+nombreEst(i),'aprobacion'))}
+function capacidad(i){const c=parseInt(prompt('Capacidad de la estación (plantas):',hab[i]?.capacidad||40),10);if(!c||c<1)return;db.ref('/habilitadas/'+i+'/capacidad').set(c);log(`Capacidad de ${nombreEst(i)}: ${c} plantas`,'estacion',i)}
 async function eliminarEstacion(i){
   const nom=nombreEst(i);
   if(Object.values(lotes).some(l=>l.estacionId===i&&l.estado==='ocupado')){alert('Esta estación tiene lotes ocupados. Libéralos primero.');return}
@@ -255,32 +286,39 @@ async function eliminarEstacion(i){
 function deshabilitar(i){
   if(Object.values(lotes).some(l=>l.estacionId===i&&l.estado==='ocupado')){alert('Libera primero los lotes ocupados de esta estación.');return}
   if(confirm('¿Deshabilitar esta estación? Los clientes dejarán de ver sus lotes.'))db.ref('/habilitadas/'+i).remove().then(()=>log('Estación deshabilitada: '+nombreEst(i),'aprobacion'))}
-function addLote(){const n=$('lnom').value.trim(),e=$('lest').value;if(!n||!e||!hab[e])return;
-  db.ref('/lotes').push({nombre:n,estacionId:e,estacionNombre:nombreEst(e),cultivo:$('lcul').value,plantas:+$('lpl').value||1,dias:+$('ldias').value||90,estado:'disponible'});log(`Lote agregado: ${n} (${+$('lpl').value||1} plantas)`,'lote',e);$('lnom').value=''}
 function pintarLotes(){
   const c={disponible:'ok',ocupado:'wait'};
   $('lotes').innerHTML=Object.entries(lotes).map(([id,l])=>`<div class="card"><h3>${l.nombre}</h3><span class="tag ${c[l.estado]||''}">${l.estado}</span>
     <p class="mut">Estación: ${nombreEst(l.estacionId)} · Plantas: ${l.plantas||'—'} · Contrato: ${l.dias} días${l.fechaFin?` · hasta ${fmt(l.fechaFin)}`:''}</p>
-    ${l.estado==='ocupado'?`<button class="sec" onclick="liberar('${id}')">Liberar lote</button>`:`<button class="sec" onclick="eliminarLote('${id}')">Eliminar</button>`}</div>`).join('')||'<p class="mut">Sin lotes.</p>';
+    ${l.estado==='ocupado'?`<button class="sec" onclick="liberar('${id}')">Finalizar contrato</button>`:l.estado==='disponible'?`<button class="sec" onclick="eliminarLote('${id}')">Eliminar</button>`:''}</div>`).join('')||'<p class="mut">Sin lotes.</p>';
 }
 function eliminarLote(id){const l=lotes[id];if(confirm('¿Eliminar este lote?')){db.ref('/lotes/'+id).remove();log('Lote eliminado: '+(l?.nombre||id),'lote',l?.estacionId)}}
+const usados=id=>Object.values(lotes).filter(l=>l.estacionId===id&&l.estado==='ocupado').reduce((n,l)=>n+(+l.plantas||0),0);
+function datosPed(s){const l=lotes[s.loteId]||{};return {est:s.estacionId||l.estacionId,pl:+(s.plantas||l.plantas)||0,dias:+(s.dias||l.dias)||90,cul:s.cultivo||l.cultivo||'frutilla'}}
 function pintarPend(){
   const p=[];Object.entries(subs).forEach(([u,m])=>Object.entries(m).forEach(([id,s])=>{if(s.estado==='pendiente')p.push([u,id,s])}));
-  $('pend').innerHTML=p.length?p.map(([u,id,s])=>`<div class="card"><h3>${lotes[s.loteId]?.nombre||s.loteId}</h3><p class="mut">${esc(s.email)}<br>${fmt(s.creada)}</p>
-    <div class="row"><button onclick="aprobar('${u}','${id}')">Aprobar</button><button class="red" onclick="rechazar('${u}','${id}')">Rechazar</button></div></div>`).join(''):'<p class="mut">Nada pendiente.</p>';
+  $('pend').innerHTML=p.length?p.map(([u,id,s])=>{const d=datosPed(s),cap=+hab[d.est]?.capacidad||0;
+    return `<div class="card"><h3>Pedido de ${d.pl} plantas</h3><p class="mut">${esc(s.email)} · ${fmt(s.creada)}<br>Estación: ${esc(nombreEst(d.est))} · Contrato: ${d.dias} días<br>Libres ahora: ${cap?(cap-usados(d.est))+' de '+cap:'capacidad no definida'}</p>
+    <div class="row"><button onclick="aprobar('${u}','${id}')">Aprobar</button><button class="red" onclick="rechazar('${u}','${id}')">Rechazar</button></div></div>`}).join(''):'<p class="mut">Nada pendiente.</p>';
 }
 async function aprobar(u,id){
-  const s=subs[u][id], l=lotes[s.loteId]; if(!l||l.estado!=='disponible'||!hab[l.estacionId]){alert('El lote ya no está disponible.');return}
-  const ini=Date.now(), fin=ini+l.dias*DAY, up={};
-  up[`/suscripciones/${u}/${id}/estado`]='activa';up[`/suscripciones/${u}/${id}/fechaInicio`]=ini;up[`/suscripciones/${u}/${id}/fechaFin`]=fin;
-  up[`/lotes/${s.loteId}/estado`]='ocupado';up[`/lotes/${s.loteId}/clienteUid`]=u;up[`/lotes/${s.loteId}/fechaFin`]=fin;
-  Object.entries({activa:true,modo:'auto',cultivo:l.cultivo||'frutilla'}).forEach(([k,v])=>up[`/estaciones/${l.estacionId}/config/${k}`]=v);
-  await db.ref().update(up);log(`Aprobado ${s.email} en ${l.nombre}`,'aprobacion');log(`${l.nombre} asignado a ${s.email} por ${l.dias} días`,'lote',l.estacionId);
+  const s=subs[u][id], d=datosPed(s), h=hab[d.est], l0=lotes[s.loteId];
+  if(!h){alert('La estación no está autorizada.');return}
+  if(l0&&l0.estado!=='disponible'){alert('El lote ya no está disponible.');return}
+  const lib=(+h.capacidad||0)-usados(d.est);
+  if(!d.pl||d.pl>lib){alert('No hay capacidad suficiente. Plantas libres: '+Math.max(0,lib));return}
+  const ini=Date.now(), fin=ini+d.dias*DAY, key=l0?s.loteId:db.ref('/lotes').push().key, nombre=l0?l0.nombre:`Lote ${s.email.split('@')[0]} ${fmt(ini)}`, up={};
+  const base=`/suscripciones/${u}/${id}`;
+  up[base+'/estado']='activa';up[base+'/fechaInicio']=ini;up[base+'/fechaFin']=fin;up[base+'/loteId']=key;up[base+'/resuelta']=ini;
+  up['/lotes/'+key]={nombre,estacionId:d.est,estacionNombre:nombreEst(d.est),cultivo:d.cul,plantas:d.pl,dias:d.dias,estado:'ocupado',clienteUid:u,fechaFin:fin};
+  Object.entries({activa:true,modo:'auto',cultivo:d.cul}).forEach(([k,v])=>up[`/estaciones/${d.est}/config/${k}`]=v);
+  await db.ref().update(up);
+  log(`Aprobado ${s.email} en ${nombre}`,'aprobacion');log(`${nombre} asignado a ${s.email} por ${d.dias} días`,'lote',d.est);
 }
-function rechazar(u,id){const s=subs[u][id];db.ref(`/suscripciones/${u}/${id}`).update({estado:'rechazada',resuelta:Date.now()});log(`Rechazada la solicitud de ${s.email} para ${lotes[s.loteId]?.nombre||s.loteId}`,'aprobacion')}
+function rechazar(u,id){const s=subs[u][id];db.ref(`/suscripciones/${u}/${id}`).update({estado:'rechazada',resuelta:Date.now()});log(`Rechazada la solicitud de ${s.email} para ${nomPed(s)}`,'aprobacion')}
 async function liberar(id){
   const l=lotes[id], otros=Object.entries(lotes).some(([k,x])=>k!==id&&x.estacionId===l.estacionId&&x.estado==='ocupado');
-  await db.ref().update({[`/lotes/${id}/estado`]:'disponible',[`/lotes/${id}/clienteUid`]:null,[`/lotes/${id}/fechaFin`]:null,[`/estaciones/${l.estacionId}/config/activa`]:otros});
+  await db.ref().update({[`/lotes/${id}/estado`]:'finalizado',[`/estaciones/${l.estacionId}/config/activa`]:otros});
   log('Lote liberado: '+l.nombre,'lote',l.estacionId)}
 
 
@@ -300,7 +338,7 @@ async function addEstacion(){
     up['/Dispositivos/'+duid]=id;
     up['/estaciones/'+id+'/info/nombre']=$('enom').value.trim()||id;
     up['/estaciones/'+id+'/config/modo']='auto';
-    up['/habilitadas/'+id]={nombre:$('enom').value.trim()||id};
+    up['/habilitadas/'+id]={nombre:$('enom').value.trim()||id,capacidad:+$('ecap').value||40};
     await db.ref().update(up);log('Estación creada y autorizada: '+id,'aprobacion');
     out.textContent='Estación creada. Carga estos datos en el firmware de la nueva ESP32:\n\n#define ESTACION_ID "'+id+'"\n#define DEVICE_EMAIL "'+email+'"\n#define DEVICE_PASSWORD "'+pass+'"\n\nGuarda la contraseña: no se vuelve a mostrar.';
     $('eid').value='';$('enom').value='';
@@ -329,7 +367,7 @@ function pintarLog(){
   $('logLote').innerHTML=L(regs.lote,15);
   $('logEst').innerHTML=L(regs.estacion,30);
   // Aprobaciones: se arman desde las suscripciones, así cada estado tiene su propio listado
-  const todas=Object.values(subs).flatMap(m=>Object.values(m)), N=x=>lotes[x.loteId]?.nombre||x.loteId, ET={pendiente:'pendiente',activa:'aprobada',rechazada:'rechazada'};
+  const todas=Object.values(subs).flatMap(m=>Object.values(m)), N=nomPed, ET={pendiente:'pendiente',activa:'aprobada',rechazada:'rechazada'};
   const S={
     solicitudes:todas.map(x=>({t:x.creada,msg:`Cliente ${x.email} solicitó ${N(x)} (${ET[x.estado]||x.estado})`})),
     aprobadas:todas.filter(x=>x.estado==='activa').map(x=>({t:x.fechaInicio,msg:`Aprobado ${x.email} en ${N(x)}`})),
@@ -350,7 +388,7 @@ function qHist(id,a,b,lim){
   return q.limitToLast(lim);
 }
 let tH=null;
-const PAL=['#d62f4b','#2f6b4a','#14231b','#e08a00','#3b6fd4','#8a3fb5','#0d9488','#9a6b3c'];
+const PAL=['#d62f4b','#2f6b4a','#2563eb','#e08a00','#3b6fd4','#8a3fb5','#0d9488','#9a6b3c'];
 function cargarHist(){
   // cuenta de estación: solo su propia estación; admin: lo seleccionado (lotes y/o estaciones)
   const items=rol==='esp'?(miEst?[['e',miEst]]:[]):[...[...selE].map(i=>['e',i]),...[...selL].filter(k=>lotes[k]).map(k=>['l',k])];
@@ -380,7 +418,8 @@ function cargarHist(){
 
 // ---- Selección múltiple: lotes agrupados por estación; al final, las estaciones sin lotes ----
 const selE=new Set(), selL=new Set(); let sigSel='';
-function resumenSel(){$('xResumen').textContent=`Selección: ${selE.size} estación(es) y ${selL.size} lote(s).`}
+function resumenSel(){const t=`${selE.size} estación(es) y ${selL.size} lote(s)`;$('xResumen').textContent='Selección: '+t+'.';$('hSum').textContent=(selE.size+selL.size)?'Seleccionado: '+t:'Elegir lotes o estaciones'}
+document.addEventListener('click',e=>{const d=$('hDD');if(d&&d.open&&!d.contains(e.target))d.open=false});
 function selTog(t,id,on){(t==='e'?selE:selL)[on?'add':'delete'](id);resumenSel();clearTimeout(tH);tH=setTimeout(cargarHist,300)}
 function selTodo(on){selE.clear();selL.clear();if(on)Object.keys(ests).forEach(i=>selE.add(i));sigSel='';pintarSel();cargarHist()}
 function pintarSel(){
