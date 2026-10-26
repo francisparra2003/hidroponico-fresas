@@ -58,9 +58,31 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
 .hide{display:none!important}
 @keyframes subir{from{opacity:0;transform:translateY(10px)}}
 @media(prefers-reduced-motion:no-preference){section:not(.hide),#acceso{animation:subir .5s both}.bar i{transition:width .6s}}
+.pane.off{display:none!important}
+::selection{background:rgba(214,47,75,.25)}
+#tabs{display:flex;gap:6px;flex-basis:100%;overflow-x:auto;padding:2px 0 12px;scrollbar-width:none}#tabs::-webkit-scrollbar{display:none}
+#tabs button{flex:none;background:rgba(255,255,255,.09);color:#cfe9da;box-shadow:none;padding:9px 17px;font-size:14.5px}
+#tabs button:hover{background:rgba(255,255,255,.18);transform:none}
+#tabs button.on{background:#fff;color:var(--deep);box-shadow:0 6px 16px -6px rgba(0,0,0,.5)}
+.bd{display:inline-block;margin-left:7px;min-width:20px;padding:1px 6px;border-radius:99px;background:var(--berry);color:#fff;font-size:11.5px;text-align:center}
+.banner{position:relative;overflow:hidden;display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:20px;padding:26px 30px;border-radius:26px;color:#fff;
+  background:radial-gradient(420px 220px at 92% 0,rgba(240,90,115,.55),transparent 70%),radial-gradient(360px 240px at 0 120%,rgba(127,209,160,.35),transparent 70%),linear-gradient(120deg,#1d4a33,var(--deep));box-shadow:var(--sh)}
+.banner h2{margin:0;font-size:30px;color:#fff}.banner h2::before{display:none}.banner p{margin:6px 0 0;color:#cfe9da;max-width:520px;line-height:1.5}
+.bi{font-size:58px;line-height:1;filter:drop-shadow(0 8px 14px rgba(0,0,0,.35))}
+.grid>.card{position:relative;overflow:hidden;padding-top:23px}
+.grid>.card::before{content:'';position:absolute;left:0;top:0;right:0;height:5px;background:linear-gradient(90deg,var(--leaf2),var(--berry))}
+.stats .card::before{position:absolute;right:16px;top:12px;font-size:24px}
+.stats .card:nth-child(1)::before{content:'📡'}.stats .card:nth-child(2)::before{content:'🌱'}.stats .card:nth-child(3)::before{content:'🍓'}.stats .card:nth-child(4)::before{content:'🔑'}.stats .card:nth-child(5)::before{content:'🛎️'}
+.card h3{display:flex;align-items:center;gap:8px}
+.foot{text-align:center;color:var(--mut);font-size:13px;margin-top:56px;padding-top:18px;border-top:1px dashed var(--line)}
+@keyframes pulso{50%{opacity:.15;transform:scale(1.5)}}
+@media(prefers-reduced-motion:no-preference){.tag.ok::before{animation:pulso 2.2s infinite}.bi{animation:flota 4s ease-in-out infinite}}
+@keyframes flota{50%{transform:translateY(-7px) rotate(-4deg)}}
+@media(max-width:600px){.banner{padding:20px;border-radius:20px}.banner h2{font-size:24px}.bi{font-size:42px}header{padding:10px 14px 0}main{padding:6px 12px 56px}}
 </style></head><body>
-<header><div class="brand"><div class="logo">🍓</div><div><h1>Cosecha en renta</h1><small>Frutilla hidropónica</small></div></div><div class="who"><span class="chip" id="rolTag"></span><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div></header>
+<header><div class="brand"><div class="logo">🍓</div><div><h1>Cosecha en renta</h1><small>Frutilla hidropónica</small></div></div><div class="who"><span class="chip" id="rolTag"></span><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div><nav id="tabs" class="hide"></nav></header>
 <main>
+<div id="banner" class="banner hide"><div><h2 id="bT"></h2><p id="bS"></p></div><div class="bi" id="bE"></div></div>
 <div id="acceso" class="card">
   <div class="hero">🍓</div><h3>Cosecha en renta</h3><p class="mut">Frutilla hidropónica monitoreada en tiempo real. Ingresa o crea tu cuenta.</p>
   <input id="em" type="email" placeholder="Correo" autocomplete="email">
@@ -71,28 +93,29 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
 
 <!-- CLIENTE -->
 <section id="cliente" class="hide">
-  <h2>Mi cultivo</h2><div id="misSubs" class="grid"></div>
-  <h2>Estaciones disponibles · crea tu pedido</h2><div id="disp" class="grid"></div>
+  <div class="pane" data-p="cultivo"><h2>Mi cultivo</h2><div id="misSubs" class="grid"></div>
+  </div><div class="pane" data-p="estaciones"><h2>Estaciones disponibles · crea tu pedido</h2><div id="disp" class="grid"></div>
+</div>
 </section>
 
 <!-- CUENTA DE LA ESTACIÓN (solo ve su módulo) -->
-<section id="esp" class="hide">
+<section id="esp" class="hide pane" data-p="estacion">
   <h2>Mi estación</h2><div id="miEst" class="grid"></div>
 </section>
 
 <!-- PROPIETARIO -->
 <section id="admin" class="hide">
-  <h2>Resumen</h2><div id="stats" class="stats"></div>
+  <div class="pane" data-p="inicio"><h2>Resumen</h2><div id="stats" class="stats"></div>
   <h2>Pedidos pendientes</h2><div id="pend" class="grid"></div>
-  <h2>Estaciones por autorizar</h2><div id="pendEst" class="grid"></div>
+  </div><div class="pane" data-p="estaciones"><h2>Estaciones por autorizar</h2><div id="pendEst" class="grid"></div>
   <h2>Estaciones autorizadas</h2><div id="ests" class="grid"></div>
   <div class="card" style="margin-top:16px"><h3>Agregar estación</h3>
     <p class="mut">Cada ESP32 usa su propia cuenta. Aquí se crea y obtienes los 3 datos para cargar en su firmware. Cuando esa ESP32 se conecte, la estación pasa a "En línea". Las estaciones creadas aquí ya quedan autorizadas; las que se detecten solas esperan tu autorización arriba.</p>
     <div class="row"><label>ID de la estación<input id="eid" placeholder="Ej. est02"></label><label>Nombre (opcional)<input id="enom" placeholder="Ej. Invernadero 2"></label><label>Capacidad (plantas)<input id="ecap" type="number" value="40" min="1"></label></div>
     <button onclick="addEstacion()">Crear estación</button>
     <pre id="eres" class="hide" style="margin-top:12px"></pre></div>
-  <h2>Lotes</h2><p class="mut">Los lotes se crean cuando apruebas el pedido de un cliente.</p><div id="lotes" class="grid"></div>
-  <h2>Registro de actividad</h2>
+  </div><div class="pane" data-p="lotes"><h2>Lotes</h2><p class="mut">Los lotes se crean cuando apruebas el pedido de un cliente.</p><div id="lotes" class="grid"></div>
+  </div><div class="pane" data-p="actividad"><h2>Registro de actividad</h2>
   <div class="card" style="margin-bottom:16px"><div class="row"><label>Desde<input id="rd" type="date" onchange="escucharRegistros()"></label><label>Hasta<input id="rh" type="date" onchange="escucharRegistros()"></label><button class="sec" style="align-self:center" onclick="limpiarRegistro()">Quitar periodo</button></div>
     <p class="mut">El periodo filtra las dos secciones de abajo. Sin fechas se muestran los registros más recientes.</p></div>
   <div class="card"><h3>Operación de lotes</h3>
@@ -103,9 +126,10 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
     <p class="mut">Toca un estado para filtrar; vuelve a tocarlo para ver todo.</p>
     <div id="logTot" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
     <div id="logApr" class="mut log"></div></div>
+</div>
 </section>
 
-<section id="hist" class="hide">
+<section id="hist" class="hide pane" data-p="historial">
   <h2>Histórico</h2>
   <div class="card">
     <div class="row" style="align-items:flex-start">
@@ -124,7 +148,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
     <button onclick="descargarExcel()">Descargar Excel</button> <span id="xMsg" class="mut"></span>
   </div>
 </section>
-</main>
+<footer class="foot">🍓 Cosecha en renta · datos en tiempo real</footer></main>
 <script>
 const FB_CFG={
   apiKey:"AIzaSyD_WYLEyrCp9KmUHr4ac7-zTIFImazSVT8", authDomain:"hidroponico-619dc.firebaseapp.com",
@@ -148,7 +172,7 @@ function registro(){auth.createUserWithEmailAndPassword($('em').value,$('pw').va
 
 // Detecta el rol: admin, cuenta de estación (ESP32) o cliente
 auth.onAuthStateChanged(async u=>{
-  refs.forEach(r=>r.off());refs=[];rol=null;miEst=null;
+  refs.forEach(r=>r.off());refs=[];rol=null;miEst=null;$('tabs').classList.add('hide');$('banner').classList.add('hide');tabAct=null;ultTabs='';
   ['acceso','cliente','esp','admin','hist'].forEach(i=>$(i).classList.add('hide'));
   $('salir').classList.toggle('hide',!u);
   if(!u){$('acceso').classList.remove('hide');$('quien').innerText='';$('rolTag').textContent='';return}
@@ -159,7 +183,25 @@ auth.onAuthStateChanged(async u=>{
   if(d)iniciarEsp(d);else iniciarCliente();
 });
 
-function pintar(){
+const TABS={admin:[['inicio','Inicio','🏠'],['estaciones','Estaciones','📡'],['lotes','Lotes','🌱'],['historial','Historial','📈'],['actividad','Actividad','🧾']],
+  cliente:[['cultivo','Mi cultivo','🍓'],['estaciones','Estaciones','📡']],esp:[['estacion','Mi estación','📡'],['historial','Historial','📈']]};
+const TXT={inicio:['Resumen general','Estaciones, lotes y pedidos de un vistazo','🏠'],estaciones:['Estaciones','Autoriza módulos, controla la bomba del tanque y revisa lecturas en vivo','📡'],
+  lotes:['Lotes','Cultivos en curso y contratos activos','🌱'],historial:['Historial','Compara lecturas por periodo y descarga tu Excel','📈'],actividad:['Actividad','Lo que pasó en tus lotes, estaciones y aprobaciones','🧾'],
+  cultivo:['Mi cultivo','Sigue el avance de tus pedidos y contratos','🍓'],estacion:['Mi estación','Lecturas en vivo de tu módulo','📡']};
+let tabAct=null, ultTabs='';
+function irTab(t){
+  tabAct=t;document.querySelectorAll('.pane').forEach(e=>e.classList.toggle('off',e.dataset.p!==t));
+  const x=(rol==='cliente'&&t==='estaciones')?['Crea tu pedido','Elige una estación con plantas libres y haz tu pedido','🛒']:TXT[t]||['','',''];
+  $('bT').textContent=x[0];$('bS').textContent=x[1];$('bE').textContent=x[2];$('banner').classList.remove('hide');
+  ultTabs='';pintarTabs();window.scrollTo({top:0,behavior:'smooth'});if(t==='historial')cargarHist();
+}
+function pintarTabs(){
+  const T=TABS[rol];if(!T){$('tabs').classList.add('hide');return}
+  const bd=rol==='admin'?{inicio:Object.values(subs).flatMap(m=>Object.values(m)).filter(x=>x.estado==='pendiente').length,estaciones:Object.keys(ests).filter(i=>!hab[i]).length}:{};
+  const html=T.map(([k,n,e])=>`<button class="${tabAct===k?'on':''}" onclick="irTab('${k}')">${e} ${n}${bd[k]?`<span class="bd">${bd[k]}</span>`:''}</button>`).join('');
+  if(html===ultTabs)return;ultTabs=html;$('tabs').innerHTML=html;$('tabs').classList.remove('hide');
+}
+function pintar(){pintarTabs();
   if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel()}
   else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
   else if(rol==='cliente')pintarCliente();
@@ -187,7 +229,7 @@ function cardEst(i,adm){
 
 // ================= CUENTA DE ESTACIÓN =================
 function iniciarEsp(d){
-  rol='esp';$('rolTag').textContent='Estación';$('esp').classList.remove('hide');
+  rol='esp';$('rolTag').textContent='Estación';$('esp').classList.remove('hide');irTab('estacion');
   if(typeof d!=='string'){$('miEst').innerHTML='<p class="mut">Esta estación aún no se vincula. Reinicia la ESP32 con el firmware nuevo.</p>';return}
   miEst=d;$('hist').classList.remove('hide');$('hselBox').classList.add('hide');$('xlsCard').classList.add('hide');
   escucha('/estaciones/'+d,v=>{ests={[d]:v||{}};pintar()});
@@ -196,7 +238,7 @@ function iniciarEsp(d){
 
 // ================= CLIENTE =================
 function iniciarCliente(){
-  rol='cliente';$('rolTag').textContent='Cliente';$('cliente').classList.remove('hide');
+  rol='cliente';$('rolTag').textContent='Cliente';$('cliente').classList.remove('hide');irTab('cultivo');
   escucha('/lotes',v=>{lotes=v||{};pintar()});
   escucha('/suscripciones/'+uid,v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
@@ -243,7 +285,7 @@ function iniciarAdmin(){
   escucha('/suscripciones',v=>{subs=v||{};pintar()});
   escucha('/habilitadas',v=>{hab=v||{};pintar()});
   escucha('/estaciones',v=>{ests=v||{};pintar()});   // las estaciones aparecen solas
-  escucharRegistros();cargarHist();
+  escucharRegistros();cargarHist();irTab('inicio');
 }
 function pintarResumen(){
   const ids=Object.keys(ests), on=ids.filter(i=>enLinea(ests[i])).length;
