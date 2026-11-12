@@ -214,12 +214,12 @@ function cardEst(i,adm){
   const f=(v,d)=>v!==undefined?Number(v).toFixed(d):'--';
   const ls=Object.values(lotes).filter(l=>l.estacionId===i&&l.estado==='ocupado');
   const pl=ls.reduce((a,l)=>a+(+l.plantas||0),0);
-  const eb=e.estado?.bombas||{}, P=[['Bomba1','pH+'],['Bomba2','pH−'],['Bomba3','Nutri A'],['Bomba4','Nutri B'],['BombaPrincipal','Tanque']];
+  const eb=e.estado?.bombas||{}, P=[['Bomba1','pH+'],['Bomba2','pH−'],['Bomba3','Nutri A'],['Bomba4','Nutri B'],['BombaPrincipal','Tanque'],['Electrovalvula','Válvula']];
   return `<div class="card"><h3>${nombreEst(i)}</h3>
     <span class="tag ${enLinea(e)?'ok':'warn'}">${enLinea(e)?'En línea':'Sin conexión'}</span> <span class="tag">${c.activa?'Con cultivo':'Libre'}</span>
     ${adm?`<p class="mut">${ls.length} lote(s) ocupados · ${pl} de ${hab[i]?.capacidad||'—'} plantas</p>`:''}
     <div class="vals"><span>pH<br><b>${f(s.pH,2)}</b></span><span>TDS ppm<br><b>${f(s.TDS,0)}</b></span><span>Solución °C<br><b>${f(s.Temperatura1,1)}</b></span>
-    <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Caudal L/min<br><b>${f(s.Flujo,2)}</b></span></div>
+    <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Conduct. µS/cm<br><b>${f(s.Conductividad,0)}</b></span><span>Caudal circ. L/min<br><b>${f(s.Flujo,2)}</b></span><span>Caudal entrada L/min<br><b>${f(s.Flujo2,2)}</b></span></div>
     <p class="mut">Cultivo: ${c.cultivo||'—'} · ${c.modo==='manual'?'Manual':'Automático'}<br>Última acción: ${e.estado?.ultimaAccion||'—'}</p>
     <div style="display:flex;gap:4px;flex-wrap:wrap">${P.map(([k,n])=>`<span class="tag ${eb[k]?'ok':''}">${n} ${eb[k]?'ON':'OFF'}</span>`).join('')}</div>
     ${adm?`<div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
