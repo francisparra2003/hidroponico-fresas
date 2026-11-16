@@ -166,7 +166,7 @@ const esc=t=>String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 // tipo: 'lote' (operación de lotes) | 'estacion' (acciones de estaciones) | 'aprobacion' (decisiones del admin)
 const log=(m,tipo,est)=>{const r={t:Date.now(),tipo:tipo||'general',msg:m};if(est)r.est=est;db.ref('/registros').push(r)};
 const escucha=(path,cb,q)=>{const r=q?q(db.ref(path)):db.ref(path);r.on('value',s=>cb(s.val()));refs.push(r)};
-const enLinea=e=>{const t=e?.estado?.ultimaVez;return !!t&&(Date.now()/1000-t)<30};
+const enLinea=e=>{const t=e?.estado?.ultimaVez;return !!t&&(Date.now()/1000-t)<60};
 
 function login(){auth.signInWithEmailAndPassword($('em').value,$('pw').value).catch(e=>$('aerr').innerText=e.message)}
 function registro(){auth.createUserWithEmailAndPassword($('em').value,$('pw').value).catch(e=>$('aerr').innerText=e.message)}
@@ -202,7 +202,9 @@ function pintarTabs(){
   const html=T.map(([k,n,e])=>`<button class="${tabAct===k?'on':''}" onclick="irTab('${k}')">${e} ${n}${bd[k]?`<span class="bd">${bd[k]}</span>`:''}</button>`).join('');
   if(html===ultTabs)return;ultTabs=html;$('tabs').innerHTML=html;$('tabs').classList.remove('hide');
 }
-function pintar(){pintarTabs();
+let bloqRender=0, tReint=null;
+document.addEventListener('pointerdown',()=>{bloqRender=Date.now()+1200});
+function pintar(){if(Date.now()<bloqRender){clearTimeout(tReint);tReint=setTimeout(pintar,bloqRender-Date.now()+50);return}pintarTabs();
   if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel()}
   else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
   else if(rol==='cliente')pintarCliente();
@@ -307,7 +309,7 @@ function pintarEsts(){
   $('ests').innerHTML=aut.length?aut.map(i=>cardEst(i,true)).join(''):'<p class="mut">Aún no hay estaciones autorizadas.</p>';
 }
 function bombaManual(i,k,n,v){db.ref('/estaciones/'+i+'/bombas/'+k).set(v);log(n+(v?' encendida':' apagada')+' (manual)','estacion',i)}
-function setModo(i,m){db.ref('/estaciones/'+i+'/bombas').remove();db.ref('/estaciones/'+i+'/config/modo').set(m);log(`Modo ${m}`,'estacion',i)}
+function setModo(i,m){db.ref('/estaciones/'+i).update({'config/modo':m,bombas:null});log(`Modo ${m}`,'estacion',i)}
 function renombrar(i){const n=prompt('Nombre de la estación',nombreEst(i));if(!n||!n.trim())return;
   const up={['/estaciones/'+i+'/info/nombre']:n.trim()};if(hab[i])up['/habilitadas/'+i+'/nombre']=n.trim();db.ref().update(up)}
 // Autorizar = la estación detectada queda visible para que se creen lotes y los clientes los vean
