@@ -110,6 +110,11 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
   <h2>Pedidos pendientes</h2><div id="pend" class="grid"></div>
   </div><div class="pane" data-p="estaciones"><h2>Estaciones por autorizar</h2><div id="pendEst" class="grid"></div>
   <h2>Estaciones autorizadas</h2><div id="ests" class="grid"></div>
+  <h2>Programación</h2>
+  <div class="card"><p class="mut">Configura los tiempos de cada estación. Se guardan en la memoria de la ESP32: si se queda sin internet, sigue trabajando con esta programación.</p>
+    <label>Estación<select id="psel" onchange="cargarProg()"></select></label>
+    <div id="progForm"></div>
+    <button style="margin-top:12px" onclick="guardarProg()">Guardar programación</button> <span id="progEst" class="mut"></span></div>
   <div class="card" style="margin-top:16px"><h3>Agregar estación</h3>
     <p class="mut">Cada ESP32 usa su propia cuenta. Aquí se crea y obtienes los 3 datos para cargar en su firmware. Cuando esa ESP32 se conecte, la estación pasa a "En línea". Las estaciones creadas aquí ya quedan autorizadas; las que se detecten solas esperan tu autorización arriba.</p>
     <div class="row"><label>ID de la estación<input id="eid" placeholder="Ej. est02"></label><label>Nombre (opcional)<input id="enom" placeholder="Ej. Invernadero 2"></label><label>Capacidad (plantas)<input id="ecap" type="number" value="40" min="1"></label></div>
@@ -205,7 +210,7 @@ function pintarTabs(){
 let bloqRender=0, tReint=null;
 document.addEventListener('pointerdown',()=>{bloqRender=Date.now()+1200});
 function pintar(){if(Date.now()<bloqRender){clearTimeout(tReint);tReint=setTimeout(pintar,bloqRender-Date.now()+50);return}pintarTabs();
-  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel()}
+  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel();pintarProg()}
   else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
   else if(rol==='cliente')pintarCliente();
 }
@@ -422,6 +427,32 @@ function pintarLog(){
   const T={solicitudes:'Solicitudes',aprobadas:'Aprobadas',rechazadas:'Rechazadas',pendientes:'Pendientes'};
   $('logTot').innerHTML=Object.keys(T).map(k=>`<button class="${filtroApr===k?'':'sec'}" onclick="setFiltroApr('${k}')">${T[k]}: ${S[k].length}</button>`).join('');
   $('logApr').innerHTML=lista(filtroApr?S[filtroApr]:[...Object.values(regs.aprobacion).filter(enR),...S.solicitudes],f,hay?500:20);
+}
+
+// ================= PROGRAMACIÓN =================
+const PROG=[['Bomba del tanque',[['cicloOnMin','Encendida (min)',15],['cicloOffMin','Apagada (min)',15]]],
+ ['Nutrientes A, B y C',[['nutriCadaMin','Aplicar cada (min)',60],['nutriSegA','Bomba A (seg)',2],['nutriSegB','Bomba B (seg)',2],['nutriSegC','Bomba C (seg)',2]]],
+ ['pH',[['phMin','pH mínimo',5.5],['phMax','pH máximo',6.5],['dosisSeg','Dosis de pH (seg)',2],['esperaMin','Espera entre dosis (min)',10]]],
+ ['TDS, temperatura y agua',[['tdsMin','TDS mín (ppm)',500],['tdsMax','TDS máx (ppm)',700],['tempMax','Temp. máx (°C)',24],['nivelVacioCm','Tanque vacío (cm)',30],['nivelBajoCm','Llenar desde (cm)',22],['nivelLlenoCm','Tanque lleno (cm)',8],['dilucionSeg','Dilución (seg)',20]]]];
+const PROG_CAMPOS=PROG.flatMap(([,c])=>c);
+function armarProg(){$('progForm').innerHTML='<label style="margin-top:8px">Nutrientes: modo<select id="pg_nutriModo"><option value="horario">Por horario (cada X minutos)</option><option value="sensor">Por sensor (cuando el TDS baja)</option></select></label>'
+  +PROG.map(([t,c])=>`<h4 class="sub">${t}</h4><div class="row">${c.map(([k,n,d])=>`<label>${n}<input id="pg_${k}" type="number" step="any" value="${d}"></label>`).join('')}</div>`).join('')}
+armarProg();
+function cargarProg(){const i=$('psel').value;if(!i)return;
+  db.ref('/estaciones/'+i+'/programa').once('value',sn=>{const p=sn.val()||{};
+    PROG_CAMPOS.forEach(([k,,d])=>{$('pg_'+k).value=p[k]!==undefined?p[k]:d});$('pg_nutriModo').value=p.nutriModo||'horario'})}
+function guardarProg(){
+  const i=$('psel').value;if(!i)return;
+  const o={ver:Date.now(),nutriModo:$('pg_nutriModo').value};
+  for(const [k] of PROG_CAMPOS){const v=parseFloat($('pg_'+k).value);if(isNaN(v)){alert('Revisa el campo: '+k);return}o[k]=v}
+  if(o.phMin>=o.phMax||o.tdsMin>=o.tdsMax||!(o.nivelLlenoCm<o.nivelBajoCm&&o.nivelBajoCm<o.nivelVacioCm)){alert('Revisa los rangos: mínimo < máximo, y niveles lleno < llenar desde < vacío.');return}
+  db.ref('/estaciones/'+i+'/programa').set(o).then(()=>log('Programación guardada para '+nombreEst(i),'estacion',i))}
+let sigProg='';
+function pintarProg(){
+  const aut=Object.keys(ests).filter(i=>hab[i]), sig=JSON.stringify(aut.map(i=>[i,nombreEst(i)])), sel=$('psel');
+  if(sig!==sigProg){sigProg=sig;const cur=sel.value;sel.innerHTML=aut.map(i=>`<option value="${i}">${esc(nombreEst(i))}</option>`).join('')||'<option value="">Sin estaciones autorizadas</option>';if(aut.includes(cur))sel.value=cur;cargarProg()}
+  const e=ests[sel.value]||{},g=e.programa?.ver,a=e.estado?.programaVer;
+  $('progEst').textContent=!g?'Aún sin programar: la ESP32 usa sus valores por defecto.':(a===g?'✓ Aplicada y guardada en la ESP32':'⏳ Guardada; esperando que la ESP32 la aplique (puede tardar unos segundos)');
 }
 
 // ================= HISTÓRICO =================
