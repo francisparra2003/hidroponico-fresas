@@ -80,6 +80,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
 @keyframes flota{50%{transform:translateY(-7px) rotate(-4deg)}}
 @media(max-width:600px){.banner{padding:20px;border-radius:20px}.banner h2{font-size:24px}.bi{font-size:42px}header{padding:10px 14px 0}main{padding:6px 12px 56px}}
 .pumps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.pumps button{width:100%;padding:10px 8px}
+.vals span:last-child:nth-child(odd){grid-column:1/-1}
 </style></head><body>
 <header><div class="brand"><div class="logo">🍓</div><div><h1>Cosecha en renta</h1><small>Frutilla hidropónica</small></div></div><div class="who"><span class="chip" id="rolTag"></span><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div><nav id="tabs" class="hide"></nav></header>
 <main>
@@ -121,7 +122,23 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
     <button onclick="addEstacion()">Crear estación</button>
     <pre id="eres" class="hide" style="margin-top:12px"></pre></div>
   </div><div class="pane" data-p="lotes"><h2>Lotes</h2><p class="mut">Los lotes se crean cuando apruebas el pedido de un cliente.</p><div id="lotes" class="grid"></div>
-  </div><div class="pane" data-p="actividad"><h2>Registro de actividad</h2>
+  </div><div class="pane" data-p="calibracion"><h2>Calibración</h2>
+  <div class="card"><label>Estación<select id="csel" onchange="pintarCal()"></select></label></div>
+  <div class="grid" style="margin-top:16px">
+    <div class="card"><h3>💧 Agua del tanque</h3>
+      <p class="mut">Abre la electroválvula y mide la entrada con el sensor 1 hasta los litros indicados. Luego la cierra, espera 3 minutos y guarda la altura del agua. <b>Vacía el tanque antes</b>: se asume 0 L al iniciar.</p>
+      <label>Litros a ingresar<input id="cal_l" type="number" value="200" min="10"></label>
+      <div class="row"><button onclick="calAgua('iniciar')">Iniciar</button><button class="red" onclick="calAgua('cancelar')">Cancelar</button></div>
+      <div id="calAguaEst" style="margin-top:10px"></div></div>
+    <div class="card"><h3>🧪 Bombas de nutrientes</h3>
+      <p class="mut">Enciende una bomba un tiempo fijo, recoge lo que entrega en un recipiente graduado y escribe los mL. Así sabes cuántos mL echa por segundo.</p>
+      <label>Bomba<select id="cn_b"><option value="0">Nutriente A</option><option value="1">Nutriente B</option><option value="2">Nutriente C</option><option value="3">Bomba de pH</option></select></label>
+      <label>Segundos de la prueba<input id="cn_s" type="number" value="30" min="1" max="120"></label>
+      <button onclick="probarBomba()">Encender bomba</button>
+      <label style="margin-top:10px">Volumen recolectado (mL)<input id="cn_ml" type="number" step="any"></label>
+      <button onclick="guardarFactor()">Guardar calibración</button>
+      <div id="cnTabla" class="mut" style="margin-top:10px"></div></div>
+  </div></div><div class="pane" data-p="actividad"><h2>Registro de actividad</h2>
   <div class="card" style="margin-bottom:16px"><div class="row"><label>Desde<input id="rd" type="date" onchange="escucharRegistros()"></label><label>Hasta<input id="rh" type="date" onchange="escucharRegistros()"></label><button class="sec" style="align-self:center" onclick="limpiarRegistro()">Quitar periodo</button></div>
     <p class="mut">El periodo filtra las dos secciones de abajo. Sin fechas se muestran los registros más recientes.</p></div>
   <div class="card"><h3>Operación de lotes</h3>
@@ -189,9 +206,10 @@ auth.onAuthStateChanged(async u=>{
   if(d)iniciarEsp(d);else iniciarCliente();
 });
 
-const TABS={admin:[['inicio','Inicio','🏠'],['estaciones','Estaciones','📡'],['lotes','Lotes','🌱'],['historial','Historial','📈'],['actividad','Actividad','🧾']],
+const TABS={admin:[['inicio','Inicio','🏠'],['estaciones','Estaciones','📡'],['lotes','Lotes','🌱'],['calibracion','Calibración','🧪'],['historial','Historial','📈'],['actividad','Actividad','🧾']],
   cliente:[['cultivo','Mi cultivo','🍓'],['estaciones','Estaciones','📡']],esp:[['estacion','Mi estación','📡'],['historial','Historial','📈']]};
 const TXT={inicio:['Resumen general','Estaciones, lotes y pedidos de un vistazo','🏠'],estaciones:['Estaciones','Autoriza módulos, controla la bomba del tanque y revisa lecturas en vivo','📡'],
+  calibracion:['Calibración','Mide el agua del tanque y lo que entrega cada bomba de nutrientes','🧪'],
   lotes:['Lotes','Cultivos en curso y contratos activos','🌱'],historial:['Historial','Compara lecturas por periodo y descarga tu Excel','📈'],actividad:['Actividad','Lo que pasó en tus lotes, estaciones y aprobaciones','🧾'],
   cultivo:['Mi cultivo','Sigue el avance de tus pedidos y contratos','🍓'],estacion:['Mi estación','Lecturas en vivo de tu módulo','📡']};
 let tabAct=null, ultTabs='';
@@ -210,7 +228,7 @@ function pintarTabs(){
 let bloqRender=0, tReint=null;
 document.addEventListener('pointerdown',()=>{bloqRender=Date.now()+1200});
 function pintar(){if(Date.now()<bloqRender){clearTimeout(tReint);tReint=setTimeout(pintar,bloqRender-Date.now()+50);return}pintarTabs();
-  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel();pintarProg()}
+  if(rol==='admin'){pintarResumen();pintarEsts();pintarLotes();pintarPend();pintarLog();pintarSel();pintarProg();pintarCal()}
   else if(rol==='esp'&&miEst)$('miEst').innerHTML=cardEst(miEst,false);
   else if(rol==='cliente')pintarCliente();
 }
@@ -227,11 +245,11 @@ function cardEst(i,adm){
     <span class="tag ${enLinea(e)?'ok':'warn'}">${enLinea(e)?'En línea':'Sin conexión'}</span> <span class="tag">${c.activa?'Con cultivo':'Libre'}</span>
     ${adm?`<p class="mut">${ls.length} lote(s) ocupados · ${pl} de ${hab[i]?.capacidad||'—'} plantas</p>`:''}
     <div class="vals"><span>pH<br><b>${f(s.pH,2)}</b></span><span>TDS ppm<br><b>${f(s.TDS,0)}</b></span><span>Solución °C<br><b>${f(s.Temperatura1,1)}</b></span>
-    <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Conduct. µS/cm<br><b>${f(s.Conductividad,0)}</b></span><span>Caudal circ. L/min<br><b>${f(s.Flujo,2)}</b></span><span>Caudal entrada L/min<br><b>${f(s.Flujo2,2)}</b></span></div>
+    <span>Ambiente °C<br><b>${f(s.Temperatura2,1)}</b></span><span>Nivel cm<br><b>${f(s.Nivel,1)}</b></span><span>Volumen L<br><b>${f(s.Litros,0)}</b></span><span>Conduct. µS/cm<br><b>${f(s.Conductividad,0)}</b></span><span>Salida bomba L/min<br><b>${f(s.Flujo,2)}</b></span><span>Entrada tanque L/min<br><b>${f(s.Flujo2,2)}</b></span></div>
     <p class="mut">Cultivo: ${c.cultivo||'—'} · ${c.modo==='manual'?'Manual':'Automático'}<br>Última acción: ${e.estado?.ultimaAccion||'—'}</p>
     <div style="display:flex;gap:4px;flex-wrap:wrap">${P.map(([k,n])=>`<span class="tag ${eb[k]?'ok':''}">${n} ${eb[k]?'ON':'OFF'}</span>`).join('')}</div>
     ${adm?`<div class="row"><button class="${c.modo==='manual'?'sec':''}" onclick="setModo('${i}','auto')">Auto</button><button class="${c.modo==='manual'?'':'sec'}" onclick="setModo('${i}','manual')">Manual</button></div>
-    ${c.modo==='manual'?`<div class="pumps">${P.map(([k,n])=>`<button class="${b[k]?'red':'sec'}" onclick="bombaManual('${i}','${k}','${n}',${!b[k]})">${n} ${b[k]?'ON':'OFF'}</button>`).join('')}</div><p class="mut">Por seguridad la estación apaga sola: bombas de nutrientes y pH a los 60 s, válvula a los 10 min o con el tanque lleno, y la bomba del tanque si está vacío.</p>`:''}
+    ${c.modo==='manual'?`<div class="pumps">${P.map(([k,n])=>`<button class="${b[k]?'red':'sec'}" onclick="bombaManual('${i}','${k}','${n}',${!b[k]})">${n} ${b[k]?'ON':'OFF'}</button>`).join('')}</div><p class="mut">Por seguridad la estación apaga sola: bombas de nutrientes y pH a los 60 s, válvula a los 10 min o con el tanque lleno, y la bomba del tanque si está vacío. Al volver a Auto se mantienen los estados actuales y la estación decide según los sensores.</p>`:''}
     <div class="row" style="margin-top:8px"><button class="sec" onclick="renombrar('${i}')">Renombrar</button><button class="sec" onclick="verHist('${i}')">Histórico</button><button class="sec" onclick="capacidad('${i}')">Capacidad</button><button class="sec" onclick="deshabilitar('${i}')">Deshabilitar</button></div>`:''}</div>`;
 }
 
@@ -436,17 +454,19 @@ const PROG=[['Bomba del tanque',[['cicloOnMin','Encendida (min)',15],['cicloOffM
  ['TDS, temperatura y agua',[['tdsMin','TDS mín (ppm)',500],['tdsMax','TDS máx (ppm)',700],['tempMax','Temp. máx (°C)',24],['nivelVacioCm','Tanque vacío (cm)',30],['nivelBajoCm','Llenar desde (cm)',22],['nivelLlenoCm','Tanque lleno (cm)',8],['dilucionSeg','Dilución (seg)',20]]]];
 const PROG_CAMPOS=PROG.flatMap(([,c])=>c);
 function armarProg(){$('progForm').innerHTML='<label style="margin-top:8px">Nutrientes: modo<select id="pg_nutriModo"><option value="horario">Por horario (cada X minutos)</option><option value="sensor">Por sensor (cuando el TDS baja)</option></select></label>'
-  +PROG.map(([t,c])=>`<h4 class="sub">${t}</h4><div class="row">${c.map(([k,n,d])=>`<label>${n}<input id="pg_${k}" type="number" step="any" value="${d}"></label>`).join('')}</div>`).join('')}
+  +PROG.map(([t,c])=>`<h4 class="sub">${t}</h4><div class="row">${c.map(([k,n,d])=>`<label>${n}<input id="pg_${k}" type="number" step="any" value="${d}" oninput="actualizarMl()">${k.startsWith('nutriSeg')?`<small class="mut" id="ml_${k}"></small>`:''}</label>`).join('')}</div>`).join('')}
 armarProg();
-function cargarProg(){const i=$('psel').value;if(!i)return;
+function cargarProg(cb){const i=$('psel').value;if(!i)return;
   db.ref('/estaciones/'+i+'/programa').once('value',sn=>{const p=sn.val()||{};
-    PROG_CAMPOS.forEach(([k,,d])=>{$('pg_'+k).value=p[k]!==undefined?p[k]:d});$('pg_nutriModo').value=p.nutriModo||'horario'})}
+    PROG_CAMPOS.forEach(([k,,d])=>{$('pg_'+k).value=p[k]!==undefined?p[k]:d});$('pg_nutriModo').value=p.nutriModo||'horario';actualizarMl();if(typeof cb==='function')cb()})}
 function guardarProg(){
   const i=$('psel').value;if(!i)return;
   const o={ver:Date.now(),nutriModo:$('pg_nutriModo').value};
   for(const [k] of PROG_CAMPOS){const v=parseFloat($('pg_'+k).value);if(isNaN(v)){alert('Revisa el campo: '+k);return}o[k]=v}
   if(o.phMin>=o.phMax||o.tdsMin>=o.tdsMax||!(o.nivelLlenoCm<o.nivelBajoCm&&o.nivelBajoCm<o.nivelVacioCm)){alert('Revisa los rangos: mínimo < máximo, y niveles lleno < llenar desde < vacío.');return}
   db.ref('/estaciones/'+i+'/programa').set(o).then(()=>log('Programación guardada para '+nombreEst(i),'estacion',i))}
+function actualizarMl(){const n=ests[$('psel').value]?.calibracion?.nutri||{};
+  ['A','B','C'].forEach((x,k)=>{const el=$('ml_nutriSeg'+x),f=n['Bomba'+(k+1)]?.mlPorSeg;if(el)el.textContent=f?'≈ '+((parseFloat($('pg_nutriSeg'+x).value)||0)*f).toFixed(1)+' mL por dosis':''})}
 let sigProg='';
 function pintarProg(){
   const aut=Object.keys(ests).filter(i=>hab[i]), sig=JSON.stringify(aut.map(i=>[i,nombreEst(i)])), sel=$('psel');
@@ -454,6 +474,34 @@ function pintarProg(){
   const e=ests[sel.value]||{},g=e.programa?.ver,a=e.estado?.programaVer;
   $('progEst').textContent=!g?'Aún sin programar: la ESP32 usa sus valores por defecto.':(a===g?'✓ Aplicada y guardada en la ESP32':'⏳ Guardada; esperando que la ESP32 la aplique (puede tardar unos segundos)');
 }
+
+// ================= CALIBRACIÓN =================
+let sigCal='', ultPrueba=null;
+function pintarCal(){
+  const aut=Object.keys(ests).filter(i=>hab[i]), sig=JSON.stringify(aut.map(i=>[i,nombreEst(i)])), sel=$('csel');
+  if(sig!==sigCal){sigCal=sig;const cur=sel.value;sel.innerHTML=aut.map(i=>`<option value="${i}">${esc(nombreEst(i))}</option>`).join('')||'<option value="">Sin estaciones autorizadas</option>';if(aut.includes(cur))sel.value=cur}
+  const e=ests[sel.value]||{}, c=e.estado?.calibAgua||{}, f=(v,d)=>v!==undefined?Number(v).toFixed(d):'--';
+  $('calAguaEst').innerHTML=(c.fase==='llenando'||c.fase==='esperando')
+    ?`<span class="tag wait">${c.fase==='llenando'?'Llenando':'Esperando 3 min'}</span><div class="bar"><i style="width:${Math.min(100,(c.litros||0)/(c.objetivo||200)*100)}%"></i></div><p class="mut">${f(c.litros,1)} de ${f(c.objetivo,0)} L</p>`
+    :`<p class="mut">${c.ok?`Última calibración: ${f(c.lRef,0)} L = <b>${f(c.dRef,1)} cm</b> de distancia del sensor al agua (${f(c.cmPorLitro,3)} cm por litro; tanque vacío a ${f(c.d0,1)} cm).`:'Aún sin calibrar.'}${c.msg?`<br>Resultado: ${esc(c.msg)}`:''}</p>${c.ok?`<button class="sec" onclick="usarNivelLleno(${c.dRef})">Usar ${f(c.dRef,1)} cm como "Tanque lleno"</button>`:''}`;
+  const nu=e.calibracion?.nutri||{};
+  $('cnTabla').innerHTML=['Nutriente A','Nutriente B','Nutriente C','Bomba de pH'].map((n,i)=>{const x=nu['Bomba'+(i+1)];return `${n}: ${x?`<b>${Number(x.mlPorSeg).toFixed(2)} mL/s</b>`:'sin calibrar'}`}).join('<br>');
+}
+function calAgua(o){const i=$('csel').value;if(!i)return;
+  if(o==='iniciar'&&!confirm('Se abrirá la electroválvula y se llenará el tanque. Se asume que el tanque está VACÍO. ¿Continuar?'))return;
+  db.ref('/estaciones/'+i+'/calibracion/agua').set({ver:Date.now(),orden:o,litros:parseFloat($('cal_l').value)||200});
+  log('Calibración de agua: '+(o==='iniciar'?'iniciada':'cancelada'),'estacion',i)}
+function probarBomba(){const i=$('csel').value;if(!i)return;
+  const b=+$('cn_b').value, sg=Math.min(120,Math.max(1,parseInt($('cn_s').value)||30));
+  ultPrueba={i,b,sg};db.ref('/estaciones/'+i+'/calibracion/prueba').set({ver:Date.now(),bomba:b,seg:sg});
+  log('Prueba de calibración: bomba '+(b+1)+' por '+sg+' s','estacion',i)}
+function guardarFactor(){const i=$('csel').value, b=+$('cn_b').value, ml=parseFloat($('cn_ml').value);
+  const sg=(ultPrueba&&ultPrueba.i===i&&ultPrueba.b===b)?ultPrueba.sg:parseInt($('cn_s').value);
+  if(!i||!(ml>0)||!(sg>0)){alert('Enciende la bomba, mide lo recolectado y escribe los mL.');return}
+  db.ref('/estaciones/'+i+'/calibracion/nutri/Bomba'+(b+1)).set({mlPorSeg:ml/sg,ml,seg:sg,t:Date.now()});
+  $('cn_ml').value='';log('Bomba '+(b+1)+' calibrada: '+(ml/sg).toFixed(2)+' mL/s','estacion',i)}
+function usarNivelLleno(v){$('psel').value=$('csel').value;
+  cargarProg(()=>{$('pg_nivelLlenoCm').value=(+v).toFixed(1);irTab('estaciones');alert('Se puso '+(+v).toFixed(1)+' cm en "Tanque lleno". Revisa que sea menor que "Llenar desde" y toca Guardar programación.')})}
 
 // ================= HISTÓRICO =================
 function verHist(i){selE.clear();selL.clear();selE.add(i);sigSel='';pintarSel();cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
