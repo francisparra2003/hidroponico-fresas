@@ -81,6 +81,14 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
 @media(max-width:600px){.banner{padding:20px;border-radius:20px}.banner h2{font-size:24px}.bi{font-size:42px}header{padding:10px 14px 0}main{padding:6px 12px 56px}}
 .pumps{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.pumps button{width:100%;padding:10px 8px}
 .vals span:last-child:nth-child(odd){grid-column:1/-1}
+.gridc{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:16px;margin-top:16px}
+.gridc .card h3{font-size:16px;margin-bottom:6px}
+.tbw{overflow-x:auto;margin:8px 0}
+.tb{width:100%;border-collapse:collapse;font-size:13.5px}
+.tb th{font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);text-align:left;padding:7px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
+.tb td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+.tb td.n,.tb th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tb tr.on td:first-child{border-left:3px solid var(--leaf2)}.tb tr.off td:first-child{border-left:3px solid var(--berry)}
 </style></head><body>
 <header><div class="brand"><div class="logo">🍓</div><div><h1>Cosecha en renta</h1><small>Frutilla hidropónica</small></div></div><div class="who"><span class="chip" id="rolTag"></span><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div><nav id="tabs" class="hide"></nav></header>
 <main>
@@ -130,14 +138,27 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
       <label>Litros a ingresar<input id="cal_l" type="number" value="200" min="10"></label>
       <div class="row"><button onclick="calAgua('iniciar')">Iniciar</button><button class="red" onclick="calAgua('cancelar')">Cancelar</button></div>
       <div id="calAguaEst" style="margin-top:10px"></div></div>
-    <div class="card"><h3>🧪 Bombas de nutrientes</h3>
-      <p class="mut">Enciende una bomba un tiempo fijo, recoge lo que entrega en un recipiente graduado y escribe los mL. Así sabes cuántos mL echa por segundo.</p>
-      <label>Bomba<select id="cn_b"><option value="0">Nutriente A</option><option value="1">Nutriente B</option><option value="2">Nutriente C</option><option value="3">Bomba de pH</option></select></label>
-      <label>Segundos de la prueba<input id="cn_s" type="number" value="30" min="1" max="120"></label>
-      <button onclick="probarBomba()">Encender bomba</button>
-      <label style="margin-top:10px">Volumen recolectado (mL)<input id="cn_ml" type="number" step="any"></label>
-      <button onclick="guardarFactor()">Guardar calibración</button>
-      <div id="cnTabla" class="mut" style="margin-top:10px"></div></div>
+    <div class="card" style="grid-column:1/-1"><h3>🧪 Bombas peristálticas (A, B, C y pH)</h3>
+      <p class="mut">Mide cuántos mL entrega cada bomba por segundo, para saber cuánto líquido pasa al tanque en cada dosis. Pon la salida de la manguera en un recipiente graduado (probeta o jeringa), no en el tanque. Mientras calibras, el control automático se pausa.</p>
+      <label style="max-width:320px">Bomba<select id="cn_b" onchange="pintarCalB()"><option value="0">Nutriente A</option><option value="1">Nutriente B</option><option value="2">Nutriente C</option><option value="3">Bomba de pH</option></select></label>
+      <div class="grid" style="margin-top:6px">
+        <div><h4 class="sub" style="margin-top:0">1. Purga</h4>
+          <p class="mut">Llena la manguera hasta que salga líquido continuo y sin burbujas, y toca Detener. Ese líquido no cuenta.</p>
+          <label>Tiempo máximo de purga (s)<input id="cn_pmax" type="number" value="30" min="1" max="60"></label>
+          <div class="row"><button onclick="purgar()">Iniciar purga</button><button class="red" onclick="detenerPrueba()">Detener</button></div>
+          <label class="chk" style="margin-top:12px"><input type="checkbox" id="cn_ok" onchange="confirmarPurga(this.checked)">Confirmo: la manguera está llena y vacié el recipiente</label></div>
+        <div><h4 class="sub" style="margin-top:0">2. Medición</h4>
+          <p class="mut">La bomba se enciende el tiempo indicado y se apaga sola; la ESP32 mide el tiempo real exacto. 30–60 s da buena precisión.</p>
+          <label>Segundos de medición<input id="cn_s" type="number" value="30" min="1" max="120"></label>
+          <button id="cn_med" onclick="medirBomba()">Iniciar medición</button></div>
+        <div><h4 class="sub" style="margin-top:0">3. Resultado</h4>
+          <p class="mut">Lee el volumen en el recipiente y guárdalo. Repite la medición 3 veces (sin purgar de nuevo) para un promedio confiable.</p>
+          <label>Volumen recolectado (mL)<input id="cn_ml" type="number" step="any"></label>
+          <button onclick="guardarFactor()">Guardar medición</button></div>
+      </div>
+      <div id="cnEst" style="margin-top:12px"></div>
+      <div id="cnMed" class="mut" style="margin-top:8px"></div>
+      <div id="cnTabla" class="tbw" style="margin-top:8px"></div></div>
   </div></div><div class="pane" data-p="actividad"><h2>Registro de actividad</h2>
   <div class="card" style="margin-bottom:16px"><div class="row"><label>Desde<input id="rd" type="date" onchange="escucharRegistros()"></label><label>Hasta<input id="rh" type="date" onchange="escucharRegistros()"></label><button class="sec" style="align-self:center" onclick="limpiarRegistro()">Quitar periodo</button></div>
     <p class="mut">El periodo filtra las dos secciones de abajo. Sin fechas se muestran los registros más recientes.</p></div>
@@ -153,7 +174,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
 </section>
 
 <section id="hist" class="hide pane" data-p="historial">
-  <h2>Histórico</h2>
+  <h2>Histórico de sensores</h2>
   <div class="card">
     <div class="row" style="align-items:flex-start">
       <div id="hselBox" style="flex:2;min-width:260px"><label style="margin-bottom:4px">Lotes</label>
@@ -161,12 +182,27 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
           <div class="ddp"><div style="margin-bottom:6px"><button class="sec" onclick="selTodo(true)">Todas las estaciones</button> <button class="sec" onclick="selTodo(false)">Ninguno</button></div><div id="hSel"></div></div></details></div>
       <label>Desde<input id="hd" type="date" onchange="cargarHist()"></label>
       <label>Hasta<input id="hh" type="date" onchange="cargarHist()"></label>
-      <label>Variable<select id="hvar" onchange="cargarHist()"><option value="todas">pH, TDS y temp. (con 1 selección)</option><option value="pH">pH</option><option value="TDS">TDS</option><option value="Temperatura1">Temperatura</option></select></label>
+      <label>Variable<select id="hvar" onchange="cargarHist()"></select></label>
     </div>
-    <canvas id="chart" height="110"></canvas><p id="hNota" class="mut"></p>
+    <p class="mut">Cada variable tiene su propia gráfica con los valores tal como se midieron (una lectura por minuto), sin promediar. Debajo de cada gráfica: mínimo, máximo, última lectura y cuánto cambió en el periodo.</p>
+    <p id="hNota" class="mut"></p>
   </div>
+  <div id="charts" class="gridc"></div>
+
+  <h2>Bombas y electroválvula</h2>
+  <div class="card">
+    <p class="mut">Cada vez que un relé se enciende o se apaga queda registrado: cuánto tiempo estuvo encendido, cuánto estuvo apagado antes, el agua que entró por la electroválvula (sensor 1), el agua que circuló con la bomba del tanque (sensor 2) y cuánto subió o bajó el nivel. Usa la misma selección y el mismo periodo de arriba.</p>
+    <h4 class="sub">Resumen por equipo</h4>
+    <div id="evRes" class="tbw"></div>
+    <h4 class="sub">Línea de tiempo (barras = encendido)</h4>
+    <div id="evChartBox" style="position:relative;height:260px"><canvas id="evChart"></canvas></div>
+    <h4 class="sub">Detalle de encendidos y apagados</h4>
+    <label style="max-width:320px">Equipo<select id="evF" onchange="pintarEventos()"></select></label>
+    <div id="evTabla" class="tbw" style="max-height:460px;overflow:auto"></div>
+  </div>
+
   <div class="card hide" id="xlsCard" style="margin-top:16px"><h3>Descargar Excel</h3>
-    <p class="mut">Descarga lo que tengas seleccionado arriba, con el mismo periodo (sin fechas baja todo el histórico). De un lote se exportan las lecturas de su estación durante su contrato.</p>
+    <p class="mut">Descarga lo que tengas seleccionado arriba, con el mismo periodo (sin fechas baja todo el histórico). Incluye todas las lecturas por separado, el resumen por variable, cada encendido y apagado de las bombas y la electroválvula, y su resumen. De un lote se exportan los datos de su estación durante su contrato.</p>
     <p id="xResumen" class="mut"></p>
     <button onclick="descargarExcel()">Descargar Excel</button> <span id="xMsg" class="mut"></span>
   </div>
@@ -346,7 +382,7 @@ async function eliminarEstacion(i){
   const nom=nombreEst(i);
   if(Object.values(lotes).some(l=>l.estacionId===i&&l.estado==='ocupado')){alert('Esta estación tiene lotes ocupados. Libéralos primero.');return}
   if(!confirm(`¿Eliminar la estación ${nom}? Se borran sus datos, su histórico y sus lotes libres. Si la ESP32 sigue encendida ya no podrá registrarse.`))return;
-  const up={['/estaciones/'+i]:null,['/historial/'+i]:null,['/habilitadas/'+i]:null};
+  const up={['/estaciones/'+i]:null,['/historial/'+i]:null,['/eventos/'+i]:null,['/habilitadas/'+i]:null};
   Object.entries(lotes).forEach(([k,l])=>{if(l.estacionId===i)up['/lotes/'+k]=null});
   try{Object.entries((await db.ref('/Dispositivos').get()).val()||{}).forEach(([u,v])=>{if(v===i)up['/Dispositivos/'+u]=null})}catch(e){}
   await db.ref().update(up);log('Estación eliminada: '+nom,'aprobacion');
@@ -484,60 +520,198 @@ function pintarCal(){
   $('calAguaEst').innerHTML=(c.fase==='llenando'||c.fase==='esperando')
     ?`<span class="tag wait">${c.fase==='llenando'?'Llenando':'Esperando 3 min'}</span><div class="bar"><i style="width:${Math.min(100,(c.litros||0)/(c.objetivo||200)*100)}%"></i></div><p class="mut">${f(c.litros,1)} de ${f(c.objetivo,0)} L</p>`
     :`<p class="mut">${c.ok?`Última calibración: ${f(c.lRef,0)} L = <b>${f(c.dRef,1)} cm</b> de distancia del sensor al agua (${f(c.cmPorLitro,3)} cm por litro; tanque vacío a ${f(c.d0,1)} cm).`:'Aún sin calibrar.'}${c.msg?`<br>Resultado: ${esc(c.msg)}`:''}</p>${c.ok?`<button class="sec" onclick="usarNivelLleno(${c.dRef})">Usar ${f(c.dRef,1)} cm como "Tanque lleno"</button>`:''}`;
-  const nu=e.calibracion?.nutri||{};
-  $('cnTabla').innerHTML=['Nutriente A','Nutriente B','Nutriente C','Bomba de pH'].map((n,i)=>{const x=nu['Bomba'+(i+1)];return `${n}: ${x?`<b>${Number(x.mlPorSeg).toFixed(2)} mL/s</b>`:'sin calibrar'}`}).join('<br>');
+  pintarCalB();
 }
 function calAgua(o){const i=$('csel').value;if(!i)return;
   if(o==='iniciar'&&!confirm('Se abrirá la electroválvula y se llenará el tanque. Se asume que el tanque está VACÍO. ¿Continuar?'))return;
   db.ref('/estaciones/'+i+'/calibracion/agua').set({ver:Date.now(),orden:o,litros:parseFloat($('cal_l').value)||200});
   log('Calibración de agua: '+(o==='iniciar'?'iniciada':'cancelada'),'estacion',i)}
-function probarBomba(){const i=$('csel').value;if(!i)return;
+// ---- Bombas peristálticas: 1) purga  2) confirmación  3) medición cronometrada  4) mL recolectados ----
+const NB=['Nutriente A','Nutriente B','Nutriente C','Bomba de pH'];
+const purgada={};                     // 'est|bomba' -> true cuando el usuario confirma la purga
+const kP=()=>$('csel').value+'|'+$('cn_b').value;
+function ordenPrueba(o){const i=$('csel').value;if(!i)return null;o.ver=Date.now();ultPrueba={i,...o};
+  db.ref('/estaciones/'+i+'/calibracion/prueba').set(o);pintarCalB();return i}
+function purgar(){const b=+$('cn_b').value, sg=Math.min(60,Math.max(1,parseInt($('cn_pmax').value)||30));
+  purgada[kP()]=false;const i=ordenPrueba({tipo:'purga',bomba:b,seg:sg});
+  if(i)log(`Purga de ${NB[b]} (máx. ${sg} s)`,'estacion',i)}
+function detenerPrueba(){const i=ordenPrueba({tipo:'detener',bomba:+$('cn_b').value,seg:0});if(i)log('Purga/medición detenida','estacion',i)}
+function confirmarPurga(v){purgada[kP()]=v;pintarCalB()}
+function medirBomba(){
+  if(!purgada[kP()]){alert('Primero purga la bomba y confirma que la manguera está llena y el recipiente vacío.');return}
   const b=+$('cn_b').value, sg=Math.min(120,Math.max(1,parseInt($('cn_s').value)||30));
-  ultPrueba={i,b,sg};db.ref('/estaciones/'+i+'/calibracion/prueba').set({ver:Date.now(),bomba:b,seg:sg});
-  log('Prueba de calibración: bomba '+(b+1)+' por '+sg+' s','estacion',i)}
-function guardarFactor(){const i=$('csel').value, b=+$('cn_b').value, ml=parseFloat($('cn_ml').value);
-  const sg=(ultPrueba&&ultPrueba.i===i&&ultPrueba.b===b)?ultPrueba.sg:parseInt($('cn_s').value);
-  if(!i||!(ml>0)||!(sg>0)){alert('Enciende la bomba, mide lo recolectado y escribe los mL.');return}
-  db.ref('/estaciones/'+i+'/calibracion/nutri/Bomba'+(b+1)).set({mlPorSeg:ml/sg,ml,seg:sg,t:Date.now()});
-  $('cn_ml').value='';log('Bomba '+(b+1)+' calibrada: '+(ml/sg).toFixed(2)+' mL/s','estacion',i)}
+  const i=ordenPrueba({tipo:'medir',bomba:b,seg:sg});if(i)log(`Medición de ${NB[b]}: ${sg} s`,'estacion',i)}
+function pintarCalB(){
+  const i=$('csel').value, b=+$('cn_b').value, e=ests[i]||{}, cb=e.estado?.calibBomba, ok=!!purgada[kP()];
+  $('cn_ok').checked=ok;$('cn_med').disabled=!ok;$('cn_med').style.opacity=ok?1:.45;
+  let h='';
+  const pend=ultPrueba&&ultPrueba.i===i&&(!cb||cb.ver!==ultPrueba.ver);
+  if(pend&&Date.now()-ultPrueba.ver<20000)h=`<span class="tag wait">Enviando la orden a la estación…</span>`;
+  else if(pend)h=`<span class="tag warn">La estación no respondió. Revisa que esté en línea y con el firmware nuevo.</span>`;
+  else if(cb&&cb.bomba===b){
+    const rest=Math.max(0,Math.ceil((cb.seg||0)-(Date.now()-(cb.ver||0))/1000)), pct=cb.seg?Math.min(100,100-rest/cb.seg*100):0;
+    const T={purgando:['wait',`Purgando ${NB[b]}… quedan ~${rest} s. Toca Detener en cuanto salga líquido continuo.`],
+      midiendo:['wait',`Midiendo ${NB[b]}… quedan ~${rest} s. No muevas el recipiente.`],
+      purga_lista:['ok',`Purga terminada (${(+cb.segReal).toFixed(1)} s). Si ya sale líquido sin burbujas, vacía el recipiente y confirma abajo.`],
+      purga_detenida:['ok',`Purga detenida a los ${(+cb.segReal).toFixed(1)} s. Vacía el recipiente y confirma abajo.`],
+      medicion_lista:['ok',`Medición lista: la bomba estuvo encendida <b>${(+cb.segReal).toFixed(2)} s</b> exactos. Mide el volumen y escríbelo en el paso 3.`],
+      medicion_cancelada:['warn',`Medición cancelada a los ${(+cb.segReal).toFixed(1)} s: no se puede usar. Vacía el recipiente y repite.`]}[cb.fase];
+    if(T)h=`<span class="tag ${T[0]}">${T[0]==='wait'?'En curso':T[0]==='ok'?'Listo':'Atención'}</span><p class="mut" style="margin:6px 0">${T[1]}</p>`+((cb.fase==='purgando'||cb.fase==='midiendo')?`<div class="bar"><i style="width:${pct}%"></i></div>`:'');
+  }
+  $('cnEst').innerHTML=h;
+  // Tabla de bombas: promedio de las últimas 3 mediciones y repetibilidad
+  const nu=e.calibracion?.nutri||{};
+  $('cnTabla').innerHTML=`<table class="tb"><tr><th>Bomba</th><th class="n">mL/s</th><th class="n">mL/min</th><th class="n">Mediciones</th><th class="n">Variación</th></tr>`+NB.map((n,k)=>{const x=nu['Bomba'+(k+1)];
+    if(!x)return `<tr><td>${n}</td><td class="n" colspan="4">sin calibrar</td></tr>`;
+    const m=(x.medidas||[]).slice(-3).map(q=>+q.mlPorSeg), v=m.length>1?(Math.max(...m)-Math.min(...m))/(+x.mlPorSeg)*100:null;
+    return `<tr><td>${n}</td><td class="n"><b>${(+x.mlPorSeg).toFixed(3)}</b></td><td class="n">${(x.mlPorSeg*60).toFixed(1)}</td><td class="n">${(x.medidas||[]).length||1}</td><td class="n">${v===null?'—':`<span class="tag ${v<=5?'ok':'warn'}">${v.toFixed(1)} %</span>`}</td></tr>`}).join('')+'</table>'
+    +'<p class="mut">Se usa el promedio de las últimas 3 mediciones. Si la variación pasa de 5 %, repite la medición (revisa burbujas o la manguera).</p>';
+  const x=nu['Bomba'+(b+1)], med=x?.medidas||[];
+  $('cnMed').innerHTML=med.length?`<b>${NB[b]}</b>: `+med.slice().reverse().map(q=>`${(+q.ml).toFixed(1)} mL en ${(+q.seg).toFixed(2)} s = ${(+q.mlPorSeg).toFixed(3)} mL/s`).join(' · ')+` <button class="sec" style="padding:4px 12px;margin-left:6px" onclick="borrarMedidas()">Borrar mediciones</button>`:'';
+}
+async function guardarFactor(){
+  const i=$('csel').value, b=+$('cn_b').value, ml=parseFloat($('cn_ml').value), cb=ests[i]?.estado?.calibBomba;
+  if(!i)return;
+  if(!cb||cb.bomba!==b||cb.fase!=='medicion_lista'||!(cb.segReal>0)){alert('Primero haz la medición de esta bomba (paso 2) y espera a que diga "Medición lista".');return}
+  if(!(ml>0)){alert('Escribe los mL recolectados.');return}
+  const sg=+cb.segReal, r=db.ref('/estaciones/'+i+'/calibracion/nutri/Bomba'+(b+1)), cur=(await r.get()).val()||{};
+  const medidas=[...(cur.medidas||[]),{ml,seg:sg,mlPorSeg:ml/sg,t:Date.now()}].slice(-5), ult=medidas.slice(-3), prom=ult.reduce((s,q)=>s+q.mlPorSeg,0)/ult.length;
+  await r.set({mlPorSeg:prom,mlPorMin:prom*60,ml,seg:sg,medidas,t:Date.now()});
+  $('cn_ml').value='';log(`${NB[b]} calibrada: ${(ml/sg).toFixed(3)} mL/s (promedio ${prom.toFixed(3)} mL/s, ${ult.length} medición(es))`,'estacion',i);
+  pintarCalB();
+}
+function borrarMedidas(){const i=$('csel').value, b=+$('cn_b').value;
+  if(confirm(`¿Borrar la calibración de ${NB[b]}?`)){db.ref('/estaciones/'+i+'/calibracion/nutri/Bomba'+(b+1)).remove();log(`Calibración de ${NB[b]} borrada`,'estacion',i)}}
+setInterval(()=>{if(rol==='admin'&&tabAct==='calibracion')pintarCalB()},1000);
 function usarNivelLleno(v){$('psel').value=$('csel').value;
   cargarProg(()=>{$('pg_nivelLlenoCm').value=(+v).toFixed(1);irTab('estaciones');alert('Se puso '+(+v).toFixed(1)+' cm en "Tanque lleno". Revisa que sea menor que "Llenar desde" y toca Guardar programación.')})}
 
 // ================= HISTÓRICO =================
-function verHist(i){selE.clear();selL.clear();selE.add(i);sigSel='';pintarSel();cargarHist();$('hist').scrollIntoView({behavior:'smooth'})}
-function qHist(id,a,b,lim){
-  let q=db.ref('/historial/'+id).orderByChild('t');
+// [clave en Firebase, nombre, decimales, unidad]
+const VARS=[['pH','pH',2,''],['TDS','TDS',0,'ppm'],['Conductividad','Conductividad',0,'µS/cm'],
+  ['Temperatura1','Temperatura de la solución',1,'°C'],['Temperatura2','Temperatura ambiente',1,'°C'],
+  ['Litros','Volumen del tanque',0,'L'],['Nivel','Nivel: distancia sensor → agua (menos cm = más agua)',1,'cm'],
+  ['Flujo2','Caudal de entrada al tanque (sensor 1)',2,'L/min'],['Flujo','Caudal de salida de la bomba (sensor 2)',2,'L/min']];
+$('hvar').innerHTML='<option value="todas">Todas (una gráfica por variable)</option>'+VARS.map(v=>`<option value="${v[0]}">${v[1].split(':')[0]}</option>`).join('');
+// Equipos (relés) en el orden del firmware
+const EQ=[['Bomba1','Nutriente A'],['Bomba2','Nutriente B'],['Bomba3','Nutriente C'],['Bomba4','Bomba de pH'],['BombaPrincipal','Bomba del tanque'],['Electrovalvula','Electroválvula']];
+const EQC={Bomba1:'#8a3fb5',Bomba2:'#3b6fd4',Bomba3:'#0d9488',Bomba4:'#e08a00',BombaPrincipal:'#2f6b4a',Electrovalvula:'#d62f4b'};
+const nomEq=k=>(EQ.find(e=>e[0]===k)||[k,k])[1];
+$('evF').innerHTML='<option value="">Todos los equipos</option>'+EQ.map(([k,n])=>`<option value="${k}">${n}</option>`).join('');
+const MODO={auto:'Automático',manual:'Manual',calibracion:'Calibración',prueba:'Prueba de bomba'};
+const durTxt=s=>{s=+s||0;if(s<60)return (s<10?s.toFixed(1):Math.round(s))+' s';const m=Math.floor(s/60);if(m<60)return m+' min '+Math.round(s%60)+' s';const h=Math.floor(m/60);return h<48?h+' h '+(m%60)+' min':Math.floor(h/24)+' d '+(h%24)+' h'};
+const fFecha=ms=>new Date(ms).toLocaleString('es',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+const fEje=t=>new Date(t).toLocaleString('es',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'});
+const nf=(v,d)=>v===undefined||v===null||isNaN(v)?'—':Number(v).toFixed(d);
+const sg=(v,d)=>(v>0?'+':'')+Number(v).toFixed(d);
+
+function verHist(i){selE.clear();selL.clear();selE.add(i);sigSel='';pintarSel();irTab('historial')}
+function qRango(nodo,id,a,b,lim){
+  let q=db.ref('/'+nodo+'/'+id).orderByChild('t');
   if(a>-Infinity)q=q.startAt(Math.floor(a/1000));
   if(b<Infinity)q=q.endAt(Math.floor(b/1000));
   return q.limitToLast(lim);
 }
-let tH=null;
+const qHist=(id,a,b,lim)=>qRango('historial',id,a,b,lim);
+const qEv=(id,a,b,lim)=>qRango('eventos',id,a,b,lim);
+const leer=q=>q.once('value').then(sn=>Object.values(sn.val()||{}).sort((p,q)=>p.t-q.t)).catch(()=>[]);
+
+// Lo seleccionado: [['e',estación] | ['l',lote]]; un lote solo cuenta durante sus contratos
+const contratosLote=k=>Object.values(subs).flatMap(m=>Object.values(m)).filter(x=>x.loteId===k&&x.estado==='activa');
+const itemsSel=()=>rol==='esp'?(miEst?[['e',miEst]]:[]):[...[...selE].map(i=>['e',i]),...[...selL].filter(k=>lotes[k]).map(k=>['l',k])];
+const estDe=([t,id])=>t==='e'?id:lotes[id].estacionId;
+const nomItem=([t,id])=>t==='l'?`${lotes[id].nombre} (${nombreEst(lotes[id].estacionId)})`:nombreEst(id);
+const enItem=(it,ms)=>it[0]==='e'||contratosLote(it[1]).some(c=>ms>=c.fechaInicio&&ms<=c.fechaFin);
+
+let tH=null, charts=[], evChart=null, evDatos=[], evRango=[0,0], cargaN=0;
 const PAL=['#d62f4b','#2f6b4a','#2563eb','#e08a00','#3b6fd4','#8a3fb5','#0d9488','#9a6b3c'];
 function cargarHist(){
-  // cuenta de estación: solo su propia estación; admin: lo seleccionado (lotes y/o estaciones)
-  const items=rol==='esp'?(miEst?[['e',miEst]]:[]):[...[...selE].map(i=>['e',i]),...[...selL].filter(k=>lotes[k]).map(k=>['l',k])];
-  const [a,b]=rango('hd','hh'), vsel=$('hvar').value, todas=vsel==='todas'&&items.length===1, v=vsel==='todas'?'pH':vsel;
-  const estDe=([t,id])=>t==='e'?id:lotes[id].estacionId;
-  const contratos=k=>Object.values(subs).flatMap(m=>Object.values(m)).filter(x=>x.loteId===k&&x.estado==='activa');
+  const items=itemsSel(), [a,b]=rango('hd','hh'), vsel=$('hvar').value, n=++cargaN;
   const sts=[...new Set(items.map(estDe))];
-  Promise.all(sts.map(e=>qHist(e,a,b,1500).once('value').then(sn=>[e,Object.values(sn.val()||{}).sort((p,q)=>p.t-q.t)]))).then(r=>{
-    const datos=Object.fromEntries(r), series=[], sinDatos=[], base={pointRadius:0,tension:.3};
-    items.forEach((it,n)=>{
-      const [t,id]=it; let rows=datos[estDe(it)]||[], nom;
-      if(t==='l'){const w=contratos(id);rows=rows.filter(x=>w.some(c=>x.t*1000>=c.fechaInicio&&x.t*1000<=c.fechaFin));nom=`${lotes[id].nombre} (${nombreEst(lotes[id].estacionId)})`}
-      else nom=nombreEst(id);
-      if(!rows.length)sinDatos.push(nom);
-      const pt=k=>rows.filter(x=>x[k]!==undefined).map(x=>({x:x.t*1000,y:x[k]}));
-      if(todas)series.push({...base,label:'pH',data:pt('pH'),borderColor:PAL[0]},{...base,label:'Temp °C',data:pt('Temperatura1'),borderColor:PAL[1]},{...base,label:'TDS ppm',data:pt('TDS'),borderColor:PAL[2],yAxisID:'y2'});
-      else series.push({...base,label:nom,data:pt(v),borderColor:PAL[n%PAL.length]});
+  Promise.all([
+    Promise.all(sts.map(e=>leer(qHist(e,a,b,3000)).then(r=>[e,r]))),
+    Promise.all(sts.map(e=>leer(qEv(e,a,b,3000)).then(r=>[e,r])))
+  ]).then(([rh,re])=>{
+    if(n!==cargaN)return;                       // llegó una carga más nueva
+    const datos=Object.fromEntries(rh), ev=Object.fromEntries(re);
+    charts.forEach(c=>c.destroy());charts=[];
+    const filas=items.map((it,k)=>({k,nom:nomItem(it),rows:(datos[estDe(it)]||[]).filter(x=>enItem(it,x.t*1000))}));
+    const vs=vsel==='todas'?VARS:VARS.filter(v=>v[0]===vsel);
+    $('charts').innerHTML=items.length?vs.map((v,k)=>`<div class="card"><h3>${esc(v[1])}${v[3]?` <span class="mut" style="font:400 13px 'Bricolage Grotesque'">(${v[3]})</span>`:''}</h3><div style="position:relative;height:210px"><canvas id="ch_${k}"></canvas></div><div id="chs_${k}" class="mut" style="font-size:12.5px;margin-top:6px"></div></div>`).join(''):'';
+    if(items.length)vs.forEach((v,k)=>{
+      const series=filas.map(f=>({label:f.nom,data:f.rows.filter(x=>x[v[0]]!==undefined&&x[v[0]]!==null).map(x=>({x:x.t*1000,y:+x[v[0]]})),
+        borderColor:PAL[f.k%PAL.length],backgroundColor:PAL[f.k%PAL.length],borderWidth:1.6,pointRadius:0,tension:.25}));
+      charts.push(new Chart($('ch_'+k),{type:'line',data:{datasets:series},options:{parsing:false,animation:false,maintainAspectRatio:false,interaction:{mode:'nearest',intersect:false},
+        scales:{x:{type:'linear',ticks:{maxTicksLimit:6,callback:fEje}}},
+        plugins:{legend:{display:series.length>1},tooltip:{callbacks:{title:i=>fFecha(i[0].parsed.x),label:c=>`${c.dataset.label}: ${nf(c.parsed.y,v[2])} ${v[3]}`}}}}}));
+      $('chs_'+k).innerHTML=series.map(s=>{const y=s.data.map(p=>p.y);
+        if(!y.length)return `${esc(s.label)}: sin lecturas de esta variable en el periodo`;
+        const mn=Math.min(...y),mx=Math.max(...y),ult=y[y.length-1],cam=ult-y[0];
+        return `<b>${esc(s.label)}</b>: mín ${nf(mn,v[2])} · máx ${nf(mx,v[2])} · última ${nf(ult,v[2])} · cambio ${sg(cam,v[2])} ${v[3]}`}).join('<br>');
     });
-    if(chart)chart.destroy();
-    chart=new Chart($('chart'),{type:'line',data:{datasets:series},options:{parsing:false,
-      scales:{x:{type:'linear',ticks:{maxTicksLimit:8,callback:t=>new Date(t).toLocaleString('es',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit'})}},
-        y2:{position:'right',display:todas,grid:{drawOnChartArea:false}}},
-      plugins:{tooltip:{callbacks:{title:i=>new Date(i[0].parsed.x).toLocaleString('es')}}}}});
-    $('hNota').textContent=!items.length?'Selecciona lotes o estaciones para ver la gráfica.':(sinDatos.length?'Sin lecturas en el periodo para: '+sinDatos.join(', ')+' (un lote solo tiene lecturas durante su contrato).':'');
+    // Eventos de relés (sin duplicar si se elige una estación y uno de sus lotes)
+    const vistos=new Set();evDatos=[];
+    items.forEach(it=>(ev[estDe(it)]||[]).forEach(x=>{const key=estDe(it)+'|'+x.t+'|'+x.eq+'|'+x.on;
+      if(!vistos.has(key)&&enItem(it,x.t*1000)){vistos.add(key);evDatos.push({...x,est:estDe(it)})}}));
+    evDatos.sort((p,q)=>p.t-q.t);
+    evRango=[a>-Infinity?a:(evDatos[0]?.t*1000||Date.now()-DAY),Math.min(b,Date.now())];
+    pintarEventos();
+    const sinDatos=filas.filter(f=>!f.rows.length).map(f=>f.nom);
+    $('hNota').textContent=!items.length?'Selecciona lotes o estaciones para ver las gráficas.':(sinDatos.length?'Sin lecturas en el periodo para: '+sinDatos.join(', ')+' (un lote solo tiene lecturas durante su contrato).':'');
   });
+}
+
+// Resumen por equipo a partir de los eventos
+function resumenEventos(lista){
+  const g={};
+  lista.forEach(x=>{const k=x.est+'|'+x.eq, r=g[k]=g[k]||{est:x.est,eq:x.eq,n:0,on:0,max:0,offT:0,offN:0,l:0,hayL:false,dCm:0,hayCm:false,dL:0,hayDL:false,abierto:null};
+    if(x.on){r.n++;r.abierto=x;if(x.apagado!==undefined){r.offT+=+x.apagado;r.offN++}return}
+    r.abierto=null;r.on+=+x.dur||0;r.max=Math.max(r.max,+x.dur||0);
+    if(x.litros!==undefined){r.l+=+x.litros;r.hayL=true}
+    if(x.nivelIni!==undefined&&x.nivelFin!==undefined){r.dCm+=x.nivelIni-x.nivelFin;r.hayCm=true}   // + = subió el agua
+    if(x.lTanqIni!==undefined&&x.lTanqFin!==undefined){r.dL+=x.lTanqFin-x.lTanqIni;r.hayDL=true}
+  });
+  // si quedó encendido al final del periodo, cuenta hasta ahora (o hasta el fin del periodo)
+  Object.values(g).forEach(r=>{if(r.abierto){const d=Math.max(0,(evRango[1]-r.abierto.t*1000)/1000);r.on+=d;r.max=Math.max(r.max,d);r.sigueOn=true}});
+  return Object.values(g).sort((p,q)=>p.est.localeCompare(q.est)||EQ.findIndex(e=>e[0]===p.eq)-EQ.findIndex(e=>e[0]===q.eq));
+}
+const aguaTxt=(eq,l)=>eq==='Electrovalvula'?`entraron ${nf(l,1)} L`:eq==='BombaPrincipal'?`circularon ${nf(l,0)} L`:nf(l,1)+' L';
+const nivelTxt=(cm,l,hayL)=>`${cm>0?'subió':cm<0?'bajó':'sin cambio'} ${nf(Math.abs(cm),1)} cm${hayL?` (${sg(l,0)} L)`:''}`;
+
+function pintarEventos(){
+  const multi=new Set(evDatos.map(x=>x.est)).size>1, nomE=x=>(multi?nombreEst(x.est)+' · ':'')+nomEq(x.eq);
+  const res=resumenEventos(evDatos);
+  $('evRes').innerHTML=res.length?`<table class="tb"><tr><th>Equipo</th><th class="n">Encendidos</th><th class="n">Tiempo encendido</th><th class="n">Promedio por vez</th><th class="n">Vez más larga</th><th class="n">Apagado promedio entre usos</th><th>Agua</th><th>Nivel del tanque</th></tr>`
+    +res.map(r=>`<tr><td>${esc(nomE(r))}${r.sigueOn?' <span class="tag ok">ahora ON</span>':''}</td><td class="n">${r.n}</td><td class="n">${durTxt(r.on)}</td><td class="n">${r.n?durTxt(r.on/r.n):'—'}</td><td class="n">${durTxt(r.max)}</td><td class="n">${r.offN?durTxt(r.offT/r.offN):'—'}</td>
+      <td>${r.hayL?aguaTxt(r.eq,r.l):'—'}</td><td>${r.eq==='Electrovalvula'&&r.hayCm?nivelTxt(r.dCm,r.dL,r.hayDL):'—'}</td></tr>`).join('')+'</table>'
+    :'<p class="mut">Sin encendidos ni apagados registrados en el periodo. Se registran desde que la ESP32 tiene el firmware nuevo.</p>';
+
+  // Línea de tiempo: cada barra es un intervalo encendido
+  const barras=[];const abiertos={};
+  evDatos.forEach(x=>{const y=nomE(x),ms=x.t*1000;
+    if(x.on)abiertos[y]=ms;
+    else{const ini=abiertos[y]??ms-(+x.dur||0)*1000;barras.push({y,eq:x.eq,a:Math.max(ini,evRango[0]),b:ms,x});delete abiertos[y]}});
+  Object.entries(abiertos).forEach(([y,ms])=>{const x=evDatos.filter(e=>nomE(e)===y).pop();barras.push({y,eq:x.eq,a:ms,b:evRango[1],x,sigue:true})});
+  const cats=[...new Set(evDatos.map(nomE))].sort((p,q)=>EQ.findIndex(e=>p.endsWith(e[1]))-EQ.findIndex(e=>q.endsWith(e[1]))||p.localeCompare(q));
+  if(evChart){evChart.destroy();evChart=null}
+  $('evChartBox').style.height=Math.max(140,60+cats.length*34)+'px';
+  if(barras.length)evChart=new Chart($('evChart'),{type:'bar',
+    data:{labels:cats,datasets:[{data:barras.map(r=>({x:[r.a,r.b],y:r.y,r})),backgroundColor:barras.map(r=>EQC[r.eq]||'#888'),borderSkipped:false,borderRadius:3,barPercentage:.7,categoryPercentage:.9,minBarLength:3}]},
+    options:{indexAxis:'y',animation:false,maintainAspectRatio:false,
+      scales:{x:{type:'linear',min:evRango[0],max:evRango[1],ticks:{maxTicksLimit:8,callback:fEje}},y:{type:'category'}},
+      plugins:{legend:{display:false},tooltip:{callbacks:{title:c=>c[0].raw.y,label:c=>{const r=c.raw.r;return [`${fFecha(r.a)} → ${r.sigue?'sigue encendido':fFecha(r.b)}`,`Encendido ${durTxt((r.b-r.a)/1000)}`].concat(r.x.litros!==undefined?[aguaTxt(r.eq,r.x.litros)]:[])}}}}}});
+
+  // Detalle (lo más reciente primero)
+  const f=$('evF').value, L=evDatos.filter(x=>!f||x.eq===f).slice().reverse().slice(0,500);
+  $('evTabla').innerHTML=L.length?`<table class="tb"><tr><th>Fecha y hora</th><th>Equipo</th><th>Acción</th><th class="n">Duración</th><th>Modo</th><th>Agua</th><th>Nivel (inicio → fin)</th></tr>`
+    +L.map(x=>{const cm=x.nivelIni!==undefined&&x.nivelFin!==undefined?x.nivelIni-x.nivelFin:null, dl=x.lTanqIni!==undefined&&x.lTanqFin!==undefined?x.lTanqFin-x.lTanqIni:null;
+      return `<tr class="${x.on?'on':'off'}"><td>${fFecha(x.t*1000)}</td><td>${esc(nomE(x))}</td><td>${x.on?'Encendió':'Apagó'}</td>
+      <td class="n">${x.on?(x.apagado!==undefined?'estuvo apagado '+durTxt(x.apagado):'—'):'estuvo encendido '+durTxt(x.dur)}</td><td>${MODO[x.modo]||x.modo||'—'}</td>
+      <td>${x.litros!==undefined?aguaTxt(x.eq,x.litros):'—'}</td>
+      <td>${x.on?(x.nivelIni!==undefined?nf(x.nivelIni,1)+' cm'+(x.lTanqIni!==undefined?` · ${nf(x.lTanqIni,0)} L`:''):'—')
+        :(cm!==null?`${nf(x.nivelIni,1)} → ${nf(x.nivelFin,1)} cm · ${nivelTxt(cm,dl||0,dl!==null)}`:'—')}</td></tr>`}).join('')+'</table>'
+      +(evDatos.length>500?'<p class="mut">Se muestran los 500 más recientes; el Excel trae todos.</p>':'')
+    :'<p class="mut">Sin registros.</p>';
 }
 
 // ---- Selección múltiple: lotes agrupados por estación; al final, las estaciones sin lotes ----
@@ -568,38 +742,54 @@ async function descargarExcel(){
     // contratos activos por lote: de ahí salen las ventanas de fechas de cada lote
     const vent={};Object.values(subs).flatMap(m=>Object.values(m)).filter(x=>x.estado==='activa').forEach(x=>(vent[x.loteId]=vent[x.loteId]||[]).push(x));
     const en=(k,ms)=>(vent[k]||[]).filter(v=>ms>=v.fechaInicio&&ms<=v.fechaFin);
-    const ids=new Set([...selE,...[...selL].map(k=>lotes[k]?.estacionId).filter(Boolean)]), filas=[];
+    const ids=new Set([...selE,...[...selL].map(k=>lotes[k]?.estacionId).filter(Boolean)]), filas=[], evs=[];
     for(const id of ids){
-      const snap=await qHist(id,a,b,50000).once('value'), delLote=Object.entries(lotes).filter(([,l])=>l.estacionId===id);
-      Object.values(snap.val()||{}).forEach(x=>{
-        const ms=x.t*1000, act=delLote.filter(([k])=>en(k,ms).length);
-        if(!selE.has(id)&&!act.some(([k])=>selL.has(k)))return;   // estación elegida O lote elegido activo en ese momento
-        filas.push({ms,id,act,x});
-      });
+      const delLote=Object.entries(lotes).filter(([,l])=>l.estacionId===id);
+      const actEn=ms=>delLote.filter(([k])=>en(k,ms).length);
+      const vale=act=>selE.has(id)||act.some(([k])=>selL.has(k));   // estación elegida O lote elegido activo en ese momento
+      (await leer(qHist(id,a,b,50000))).forEach(x=>{const ms=x.t*1000,act=actEn(ms);if(vale(act))filas.push({ms,id,act,x})});
+      (await leer(qEv(id,a,b,50000))).forEach(x=>{const ms=x.t*1000,act=actEn(ms);if(vale(act))evs.push({ms,id,act,x})});
     }
-    if(!filas.length){msg.textContent='No hay lecturas con esos filtros.';return}
-    filas.sort((p,q)=>p.ms-q.ms||p.id.localeCompare(q.id));
+    if(!filas.length&&!evs.length){msg.textContent='No hay datos con esos filtros.';return}
+    filas.sort((p,q)=>p.ms-q.ms||p.id.localeCompare(q.id));evs.sort((p,q)=>p.ms-q.ms||p.id.localeCompare(q.id));
     const z=n=>String(n).padStart(2,'0'), fh=ms=>{const d=new Date(ms);return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}:${z(d.getSeconds())}`};
-    const num=(v,d)=>v===undefined||isNaN(v)?'':+Number(v).toFixed(d);
-    const datos=filas.map(({ms,id,act,x})=>({'Fecha y hora':fh(ms),'Estación':nombreEst(id),'ID estación':id,
-      'Lote':act.map(([,l])=>l.nombre).join(', ')||'—','Plantas':act.reduce((n,[,l])=>n+(+l.plantas||0),0)||'',
-      'Cliente':[...new Set(act.flatMap(([k])=>en(k,ms).map(v=>v.email)))].join(', ')||'—',
-      'pH':num(x.pH,2),'TDS (ppm)':num(x.TDS,0),'Temp solución (°C)':num(x.Temperatura1,1)}));
-    const st=(rs,k)=>{const v=rs.map(r=>r.x[k]).filter(n=>n!==undefined&&!isNaN(n)).map(Number);
-      return v.length?{p:v.reduce((s,n)=>s+n,0)/v.length,mn:v.reduce((m,n)=>Math.min(m,n),Infinity),mx:v.reduce((m,n)=>Math.max(m,n),-Infinity)}:{}};
+    const num=(v,d)=>v===undefined||v===null||isNaN(v)?'':+Number(v).toFixed(d);
+    const loteTxt=act=>act.map(([,l])=>l.nombre).join(', ')||'—';
+    const cliTxt=(act,ms)=>[...new Set(act.flatMap(([k])=>en(k,ms).map(v=>v.email)))].join(', ')||'—';
+    const COLS=[['pH','pH',2],['TDS','TDS (ppm)',0],['Conductividad','Conductividad (µS/cm)',0],['Temperatura1','Temp. solución (°C)',1],['Temperatura2','Temp. ambiente (°C)',1],
+      ['Nivel','Nivel: distancia al agua (cm)',1],['Litros','Volumen tanque (L)',0],['Flujo2','Caudal entrada (L/min)',2],['Flujo','Caudal salida bomba (L/min)',2]];
+    const datos=filas.map(({ms,id,act,x})=>{const o={'Fecha y hora':fh(ms),'Estación':nombreEst(id),'ID estación':id,'Lote':loteTxt(act),
+      'Plantas':act.reduce((n,[,l])=>n+(+l.plantas||0),0)||'','Cliente':cliTxt(act,ms)};COLS.forEach(([k,n,d])=>o[n]=num(x[k],d));return o});
+    // Resumen por variable (cada variable y cada temperatura por separado)
     const grupos=[...selE].map(i=>['Estación',nombreEst(i),nombreEst(i),filas.filter(r=>r.id===i)])
       .concat([...selL].filter(k=>lotes[k]).map(k=>['Lote',lotes[k].nombre,nombreEst(lotes[k].estacionId),filas.filter(r=>r.id===lotes[k].estacionId&&r.act.some(([kk])=>kk===k))]));
-    const resumen=grupos.map(([tipo,nom,est,rs])=>{const p=st(rs,'pH'),t=st(rs,'TDS'),c=st(rs,'Temperatura1');
-      return {'Tipo':tipo,'Nombre':nom,'Estación':est,'Muestras':rs.length,'pH prom':num(p.p,2),'pH mín':num(p.mn,2),'pH máx':num(p.mx,2),'TDS prom':num(t.p,0),'TDS mín':num(t.mn,0),'TDS máx':num(t.mx,0),'Temp prom (°C)':num(c.p,1)}});
+    const resumen=[];
+    grupos.forEach(([tipo,nom,est,rs])=>COLS.forEach(([k,n,d])=>{const v=rs.map(r=>r.x[k]).filter(q=>q!==undefined&&q!==null&&!isNaN(q)).map(Number);if(!v.length)return;
+      resumen.push({'Tipo':tipo,'Nombre':nom,'Estación':est,'Variable':n,'Lecturas':v.length,'Mínimo':num(v.reduce((m,q)=>Math.min(m,q),Infinity),d),'Máximo':num(v.reduce((m,q)=>Math.max(m,q),-Infinity),d),
+        'Promedio':num(v.reduce((s,q)=>s+q,0)/v.length,d),'Primera':num(v[0],d),'Última':num(v[v.length-1],d),'Cambio (última − primera)':num(v[v.length-1]-v[0],d)})}));
+    // Bombas y electroválvula: cada encendido y apagado
+    const bombas=evs.map(({ms,id,act,x})=>({'Fecha y hora':fh(ms),'Estación':nombreEst(id),'Lote':loteTxt(act),'Equipo':nomEq(x.eq),'Acción':x.on?'Encendió':'Apagó',
+      'Tiempo encendido (s)':x.on?'':num(x.dur,1),'Tiempo apagado antes (s)':x.on?num(x.apagado,0):'','Modo':MODO[x.modo]||x.modo||'',
+      'Agua entrada (L)':x.eq==='Electrovalvula'?num(x.litros,2):'','Agua circulada (L)':x.eq==='BombaPrincipal'?num(x.litros,1):'',
+      'Nivel inicio (cm)':num(x.nivelIni,1),'Nivel fin (cm)':num(x.nivelFin,1),'Nivel subió (cm)':x.nivelIni!==undefined&&x.nivelFin!==undefined?num(x.nivelIni-x.nivelFin,1):'',
+      'Volumen inicio (L)':num(x.lTanqIni,0),'Volumen fin (L)':num(x.lTanqFin,0)}));
+    const prevRango=evRango;evRango=[a>-Infinity?a:(evs[0]?.ms||Date.now()),Math.min(b,Date.now())];
+    const resB=resumenEventos(evs.map(({id,x})=>({...x,est:id})));evRango=prevRango;
+    const resBombas=resB.map(r=>({'Estación':nombreEst(r.est),'Equipo':nomEq(r.eq),'Encendidos':r.n,'Tiempo encendido total (min)':num(r.on/60,1),
+      'Promedio por vez (s)':r.n?num(r.on/r.n,1):'','Vez más larga (s)':num(r.max,1),'Apagado promedio entre usos (min)':r.offN?num(r.offT/r.offN/60,1):'',
+      'Agua entrada (L)':r.eq==='Electrovalvula'&&r.hayL?num(r.l,1):'','Agua circulada (L)':r.eq==='BombaPrincipal'&&r.hayL?num(r.l,0):'',
+      'Nivel subió con la válvula (cm)':r.eq==='Electrovalvula'&&r.hayCm?num(r.dCm,1):''}));
     const filtros=[['Periodo desde',$('hd').value||'(sin límite)'],['Periodo hasta',$('hh').value||'(sin límite)'],
-      ['Estaciones',[...selE].map(nombreEst).join(', ')||'—'],['Lotes',[...selL].map(k=>lotes[k]?.nombre).filter(Boolean).join(', ')||'—'],['Generado',fh(Date.now())]];
-    const wsD=XLSX.utils.json_to_sheet(datos);wsD['!cols']=[{wch:20},{wch:18},{wch:12},{wch:16},{wch:9},{wch:26},{wch:8},{wch:10},{wch:18}];
-    const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,wsD,'Datos');
-    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(resumen),'Resumen');
+      ['Estaciones',[...selE].map(nombreEst).join(', ')||'—'],['Lotes',[...selL].map(k=>lotes[k]?.nombre).filter(Boolean).join(', ')||'—'],['Generado',fh(Date.now())],
+      ['Nota','Nivel = distancia del sensor al agua: si baja la distancia, sube el agua. Volumen según la calibración del agua del tanque.']];
+    const hoja=(rows,vacio)=>XLSX.utils.json_to_sheet(rows.length?rows:[{'':vacio}]);
+    const anchos=(ws,rows)=>{if(rows.length)ws['!cols']=Object.keys(rows[0]).map(k=>({wch:Math.max(10,Math.min(32,k.length+2))}))};
+    const wb=XLSX.utils.book_new(), add=(rows,n,v)=>{const ws=hoja(rows,v);anchos(ws,rows);XLSX.utils.book_append_sheet(wb,ws,n)};
+    add(datos,'Lecturas','Sin lecturas');add(resumen,'Resumen sensores','Sin lecturas');
+    add(bombas,'Bombas y valvula','Sin registros de bombas');add(resBombas,'Resumen bombas','Sin registros de bombas');
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(filtros),'Filtros');
     XLSX.writeFile(wb,`historico_${fh(Date.now()).slice(0,10)}.xlsx`);
-    msg.textContent=`Listo: ${datos.length} lecturas.`;
+    msg.textContent=`Listo: ${datos.length} lecturas y ${bombas.length} registros de bombas.`;
   }catch(e){msg.textContent='Error: '+e.message}
 }
 </script></body></html>
