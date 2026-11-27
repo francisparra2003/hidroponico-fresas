@@ -88,6 +88,8 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
 .tb th{font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);text-align:left;padding:7px 8px;border-bottom:2px solid var(--line);white-space:nowrap}
 .tb td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 .tb td.n,.tb th.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill{border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.aviso{border:1.5px solid var(--leaf2);background:color-mix(in srgb,var(--leaf2) 8%,transparent);border-radius:14px;padding:12px 14px}
 .tb tr.on td:first-child{border-left:3px solid var(--leaf2)}.tb tr.off td:first-child{border-left:3px solid var(--berry)}
 </style></head><body>
 <header><div class="brand"><div class="logo">🍓</div><div><h1>Cosecha en renta</h1><small>Frutilla hidropónica</small></div></div><div class="who"><span class="chip" id="rolTag"></span><span id="quien"></span> <button class="sec hide" id="salir" onclick="auth.signOut()">Salir</button></div><nav id="tabs" class="hide"></nav></header>
@@ -120,7 +122,7 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
   </div><div class="pane" data-p="estaciones"><h2>Estaciones por autorizar</h2><div id="pendEst" class="grid"></div>
   <h2>Estaciones autorizadas</h2><div id="ests" class="grid"></div>
   <h2>Programación</h2>
-  <div class="card"><p class="mut">Configura los tiempos de cada estación. Se guardan en la memoria de la ESP32: si se queda sin internet, sigue trabajando con esta programación.</p>
+  <div class="card"><p class="mut">Configura cada estación. Se guarda en la memoria de la ESP32: si se queda sin internet, sigue trabajando con esta programación. Los rangos se ponen solos según el cultivo; las cantidades de nutrientes y de pH las calcula la estación con la calibración de las bombas.</p>
     <label>Estación<select id="psel" onchange="cargarProg()"></select></label>
     <div id="progForm"></div>
     <button style="margin-top:12px" onclick="guardarProg()">Guardar programación</button> <span id="progEst" class="mut"></span></div>
@@ -159,6 +161,17 @@ pre{white-space:pre-wrap;word-break:break-all;background:var(--tint);border:1px 
       <div id="cnEst" style="margin-top:12px"></div>
       <div id="cnMed" class="mut" style="margin-top:8px"></div>
       <div id="cnTabla" class="tbw" style="margin-top:8px"></div></div>
+    <div class="card" id="prepCard" style="grid-column:1/-1"><h3>🌱 Preparación de la solución</h3>
+      <p class="mut">Con las bombas calibradas y purgadas, la estación prepara el tanque con un tercio de la dosis de la etiqueta (etiqueta: 2 mL de A, 1 de B y 1 de C por litro), repartido en 2 rondas iguales: un nutriente a la vez con 60 s de mezcla, y 5 h de pausa entre rondas. Todo se cambia en Programación.</p>
+      <h4 class="sub">1. Bombas</h4><div id="prBombas" class="row" style="gap:8px"></div>
+      <div id="prPurga" style="margin-top:10px"></div>
+      <h4 class="sub">2. Preparación inicial</h4>
+      <div class="row"><label>Litros en el tanque<input id="pr_l" type="number" step="any" oninput="this.dataset.tocado=1;pintarPrep()"></label>
+        <label>Porcentaje de la dosis de la etiqueta<input id="pr_p" type="number" min="10" max="100" oninput="this.dataset.tocado=1;pintarPrep()"></label></div>
+      <div id="prTabla" class="tbw"></div>
+      <div class="row"><button id="pr_go" onclick="iniciarPrep()">Iniciar preparación inicial</button><button class="red" onclick="cancelarPrep()">Cancelar</button></div>
+      <div id="prVivo" style="margin-top:10px"></div>
+      <h4 class="sub">3. Después: dosis cortas automáticas</h4><p id="prAuto" class="mut"></p></div>
   </div></div><div class="pane" data-p="actividad"><h2>Registro de actividad</h2>
   <div class="card" style="margin-bottom:16px"><div class="row"><label>Desde<input id="rd" type="date" onchange="escucharRegistros()"></label><label>Hasta<input id="rh" type="date" onchange="escucharRegistros()"></label><button class="sec" style="align-self:center" onclick="limpiarRegistro()">Quitar periodo</button></div>
     <p class="mut">El periodo filtra las dos secciones de abajo. Sin fechas se muestran los registros más recientes.</p></div>
@@ -484,31 +497,53 @@ function pintarLog(){
 }
 
 // ================= PROGRAMACIÓN =================
-const PROG=[['Bomba del tanque',[['cicloOnMin','Encendida (min)',15],['cicloOffMin','Apagada (min)',15]]],
- ['Nutrientes A, B y C',[['nutriCadaMin','Aplicar cada (min)',60],['nutriSegA','Bomba A (seg)',2],['nutriSegB','Bomba B (seg)',2],['nutriSegC','Bomba C (seg)',2]]],
- ['pH',[['phMin','pH mínimo',5.5],['phMax','pH máximo',6.5],['dosisSeg','Dosis de pH (seg)',2],['esperaMin','Espera entre dosis (min)',10]]],
- ['TDS, temperatura y agua',[['tdsMin','TDS mín (ppm)',500],['tdsMax','TDS máx (ppm)',700],['tempMax','Temp. máx (°C)',24],['nivelVacioCm','Tanque vacío (cm)',30],['nivelBajoCm','Llenar desde (cm)',22],['nivelLlenoCm','Tanque lleno (cm)',8],['dilucionSeg','Dilución (seg)',20]]]];
+// Rangos de operación: se cargan solos según la opción elegida
+const RANGOS={
+  frutilla:{nom:'Automático: Frutilla (óptimo dentro de la etiqueta)',phMin:5.5,phMax:6.2,tdsMin:750,tdsMax:900,tempMin:15,tempMax:25},
+  etiqueta:{nom:'Etiqueta Hidroponía Ecuador (rango general)',phMin:5.5,phMax:6.5,tdsMin:750,tdsMax:1500,tempMin:15,tempMax:25}};
+const CAMPOS_RANGO=['phMin','phMax','tdsMin','tdsMax','tempMin','tempMax'];
+const PROG=[
+ ['Rangos de operación',[['phMin','pH mínimo',5.5],['phMax','pH máximo',6.2],['tdsMin','TDS mínimo (ppm)',750],['tdsMax','TDS máximo (ppm)',900],['tempMin','Temp. mínima (°C)',15],['tempMax','Temp. máxima (°C)',25]]],
+ ['Nutrientes A, B y C (dosis de la etiqueta por litro)',[['mlA','A (mL por litro)',2],['mlB','B (mL por litro)',1],['mlC','C (mL por litro)',1],['iniPct','Preparación inicial (% de la etiqueta; 33.33 = un tercio)',33.33],['prepRondas','Rondas de la preparación',2],['prepPausaMin','Pausa entre rondas (min)',300],['cortaPct','Dosis corta máx. (% de la etiqueta)',10],['mezclaSeg','Espera entre cada nutriente (s)',60]]],
+ ['pH (regulador diluido)',[['phDosisMl','Dosis corta de regulador (mL para 200 L)',10],['esperaMin','Espera antes de volver a medir (min)',10]]],
+ ['Bomba del tanque',[['cicloOnMin','Encendida (min)',15],['cicloOffMin','Apagada (min)',15]]],
+ ['Tanque y agua',[['litrosTanque','Volumen del tanque (L)',200],['nivelVacioCm','Tanque vacío (cm)',30],['nivelBajoCm','Llenar desde (cm)',22],['nivelLlenoCm','Tanque lleno (cm)',8],['dilucionSeg','Dilución por TDS alto (s)',20]]]];
 const PROG_CAMPOS=PROG.flatMap(([,c])=>c);
-function armarProg(){$('progForm').innerHTML='<label style="margin-top:8px">Nutrientes: modo<select id="pg_nutriModo"><option value="horario">Por horario (cada X minutos)</option><option value="sensor">Por sensor (cuando el TDS baja)</option></select></label>'
-  +PROG.map(([t,c])=>`<h4 class="sub">${t}</h4><div class="row">${c.map(([k,n,d])=>`<label>${n}<input id="pg_${k}" type="number" step="any" value="${d}" oninput="actualizarMl()">${k.startsWith('nutriSeg')?`<small class="mut" id="ml_${k}"></small>`:''}</label>`).join('')}</div>`).join('')}
+function armarProg(){$('progForm').innerHTML=
+  `<label style="margin-top:8px">Rangos de operación<select id="pg_rangoModo" onchange="aplicarRango()">${Object.entries(RANGOS).map(([k,r])=>`<option value="${k}">${r.nom}</option>`).join('')}<option value="manual">Personalizado (escribirlos a mano)</option></select></label>
+   <label style="margin-top:8px">Después de la preparación, el TDS<select id="pg_tdsModo" onchange="resumenProg()"><option value="prep">Se mantiene en el valor que dejó la preparación (dosis reducida)</option><option value="rango">Se completa hasta el rango de operación</option></select></label>
+   <p class="mut" style="margin:6px 0 0">El sistema solo actúa sobre el <b>TDS</b> (bombas A, B y C; dilución con la válvula), el <b>pH</b> (bomba del regulador) y el <b>nivel</b> (electroválvula). La temperatura solo genera avisos. Etiqueta: pH 5,5–6,5 · CE 1,5–3 mS/cm · TDS 750–1500 ppm · 15–25 °C. Frutilla: pH 5,5–6,2 · CE 1,5–1,8 mS/cm.</p>`
+  +PROG.map(([t,c])=>`<h4 class="sub">${t}</h4><div class="row">${c.map(([k,n,d])=>`<label>${n}<input id="pg_${k}" type="number" step="any" value="${d}" oninput="resumenProg()"></label>`).join('')}</div>`).join('')
+  +'<p id="progRes" class="mut" style="margin-top:8px"></p>';aplicarRango()}
+function aplicarRango(){const m=$('pg_rangoModo').value, r=RANGOS[m];
+  CAMPOS_RANGO.forEach(k=>{const el=$('pg_'+k);if(r)el.value=r[k];el.disabled=!!r;el.style.opacity=r?.6:1});resumenProg()}
+function resumenProg(){const g=k=>parseFloat($('pg_'+k)?.value)||0, L=g('litrosTanque'), mlL=g('mlA')+g('mlB')+g('mlC');
+  const el=$('progRes');if(!el)return;
+  const R=Math.max(1,Math.round(g('prepRondas'))), pi=g('iniPct')/100, ref=$('pg_tdsModo')?.value!=='rango';
+  el.innerHTML=`CE del rango <b>${(g('tdsMin')/500).toFixed(2)}–${(g('tdsMax')/500).toFixed(2)} mS/cm</b> (TDS ${g('tdsMin')}–${g('tdsMax')} ppm${ref?'':`; corrige hasta ${((g('tdsMin')+g('tdsMax'))/2).toFixed(0)} ppm`}) · pH objetivo ${((g('phMin')+g('phMax'))/2).toFixed(2)}.<br>`
+    +`Dosis completa de la etiqueta para ${L} L: A ${(g('mlA')*L).toFixed(0)} · B ${(g('mlB')*L).toFixed(0)} · C ${(g('mlC')*L).toFixed(0)} mL.<br>`
+    +`<b>Preparación inicial (${g('iniPct')} %): A ${(g('mlA')*L*pi).toFixed(1)} · B ${(g('mlB')*L*pi).toFixed(1)} · C ${(g('mlC')*L*pi).toFixed(1)} mL</b>, en ${R} ronda(s) de A ${(g('mlA')*L*pi/R).toFixed(1)} · B ${(g('mlB')*L*pi/R).toFixed(1)} · C ${(g('mlC')*L*pi/R).toFixed(1)} mL, con ${g('mezclaSeg')} s entre cada nutriente${R>1?` y ${(g('prepPausaMin')/60).toFixed(1)} h de pausa entre rondas (desde el último nutriente)`:''}.<br>`
+    +(ref?`Después mantiene el TDS que dejó la preparación: si baja más de 10 %, dosis corta A→B→C (máx. ${(mlL*L*g('cortaPct')/100).toFixed(0)} mL en total). El rango de arriba se usa para la dilución (TDS máximo) y como referencia.`
+         :`Después completa hasta el rango con dosis cortas A→B→C (máx. ${(mlL*L*g('cortaPct')/100).toFixed(0)} mL en total por vez).`)}
 armarProg();
 function cargarProg(cb){const i=$('psel').value;if(!i)return;
   db.ref('/estaciones/'+i+'/programa').once('value',sn=>{const p=sn.val()||{};
-    PROG_CAMPOS.forEach(([k,,d])=>{$('pg_'+k).value=p[k]!==undefined?p[k]:d});$('pg_nutriModo').value=p.nutriModo||'horario';actualizarMl();if(typeof cb==='function')cb()})}
+    PROG_CAMPOS.forEach(([k,,d])=>{$('pg_'+k).value=p[k]!==undefined?p[k]:d});
+    $('pg_tdsModo').value=p.tdsModo==='rango'?'rango':'prep';
+    $('pg_rangoModo').value=p.rangoModo&&(RANGOS[p.rangoModo]||p.rangoModo==='manual')?p.rangoModo:'frutilla';aplicarRango();if(typeof cb==='function')cb()})}
 function guardarProg(){
   const i=$('psel').value;if(!i)return;
-  const o={ver:Date.now(),nutriModo:$('pg_nutriModo').value};
+  const o={ver:Date.now(),rangoModo:$('pg_rangoModo').value,tdsModo:$('pg_tdsModo').value};
   for(const [k] of PROG_CAMPOS){const v=parseFloat($('pg_'+k).value);if(isNaN(v)){alert('Revisa el campo: '+k);return}o[k]=v}
-  if(o.phMin>=o.phMax||o.tdsMin>=o.tdsMax||!(o.nivelLlenoCm<o.nivelBajoCm&&o.nivelBajoCm<o.nivelVacioCm)){alert('Revisa los rangos: mínimo < máximo, y niveles lleno < llenar desde < vacío.');return}
+  if(o.phMin>=o.phMax||o.tdsMin>=o.tdsMax||o.tempMin>=o.tempMax||!(o.nivelLlenoCm<o.nivelBajoCm&&o.nivelBajoCm<o.nivelVacioCm)){alert('Revisa los rangos: mínimo < máximo, y niveles lleno < llenar desde < vacío.');return}
+  if(o.mlA+o.mlB+o.mlC<=0){alert('Escribe la dosis de la etiqueta (mL por litro).');return}
   db.ref('/estaciones/'+i+'/programa').set(o).then(()=>log('Programación guardada para '+nombreEst(i),'estacion',i))}
-function actualizarMl(){const n=ests[$('psel').value]?.calibracion?.nutri||{};
-  ['A','B','C'].forEach((x,k)=>{const el=$('ml_nutriSeg'+x),f=n['Bomba'+(k+1)]?.mlPorSeg;if(el)el.textContent=f?'≈ '+((parseFloat($('pg_nutriSeg'+x).value)||0)*f).toFixed(1)+' mL por dosis':''})}
 let sigProg='';
 function pintarProg(){
   const aut=Object.keys(ests).filter(i=>hab[i]), sig=JSON.stringify(aut.map(i=>[i,nombreEst(i)])), sel=$('psel');
   if(sig!==sigProg){sigProg=sig;const cur=sel.value;sel.innerHTML=aut.map(i=>`<option value="${i}">${esc(nombreEst(i))}</option>`).join('')||'<option value="">Sin estaciones autorizadas</option>';if(aut.includes(cur))sel.value=cur;cargarProg()}
   const e=ests[sel.value]||{},g=e.programa?.ver,a=e.estado?.programaVer;
-  $('progEst').textContent=!g?'Aún sin programar: la ESP32 usa sus valores por defecto.':(a===g?'✓ Aplicada y guardada en la ESP32':'⏳ Guardada; esperando que la ESP32 la aplique (puede tardar unos segundos)');
+  $('progEst').textContent=!g?'Aún sin programar: la ESP32 usa sus valores por defecto (Frutilla con la etiqueta Hidroponía Ecuador).':(a===g?'✓ Aplicada y guardada en la ESP32':'⏳ Guardada; esperando que la ESP32 la aplique (puede tardar unos segundos)');
 }
 
 // ================= CALIBRACIÓN =================
@@ -559,6 +594,7 @@ function pintarCalB(){
     if(T)h=`<span class="tag ${T[0]}">${T[0]==='wait'?'En curso':T[0]==='ok'?'Listo':'Atención'}</span><p class="mut" style="margin:6px 0">${T[1]}</p>`+((cb.fase==='purgando'||cb.fase==='midiendo')?`<div class="bar"><i style="width:${pct}%"></i></div>`:'');
   }
   $('cnEst').innerHTML=h;
+  pintarPrep();
   // Tabla de bombas: promedio de las últimas 3 mediciones y repetibilidad
   const nu=e.calibracion?.nutri||{};
   $('cnTabla').innerHTML=`<table class="tb"><tr><th>Bomba</th><th class="n">mL/s</th><th class="n">mL/min</th><th class="n">Mediciones</th><th class="n">Variación</th></tr>`+NB.map((n,k)=>{const x=nu['Bomba'+(k+1)];
@@ -577,9 +613,71 @@ async function guardarFactor(){
   const sg=+cb.segReal, r=db.ref('/estaciones/'+i+'/calibracion/nutri/Bomba'+(b+1)), cur=(await r.get()).val()||{};
   const medidas=[...(cur.medidas||[]),{ml,seg:sg,mlPorSeg:ml/sg,t:Date.now()}].slice(-5), ult=medidas.slice(-3), prom=ult.reduce((s,q)=>s+q.mlPorSeg,0)/ult.length;
   await r.set({mlPorSeg:prom,mlPorMin:prom*60,ml,seg:sg,medidas,t:Date.now()});
+  const nu2=(await db.ref('/estaciones/'+i+'/calibracion/nutri').get()).val()||{};
+  if([1,2,3,4].every(n=>nu2['Bomba'+n])&&confirm('Las 4 bombas (A, B, C y pH) ya están calibradas. ¿Deseas purgarlas ahora para operar?'))setTimeout(()=>$('prepCard').scrollIntoView({behavior:'smooth'}),300);
   $('cn_ml').value='';log(`${NB[b]} calibrada: ${(ml/sg).toFixed(3)} mL/s (promedio ${prom.toFixed(3)} mL/s, ${ult.length} medición(es))`,'estacion',i);
   pintarCalB();
 }
+// ---- Preparación de la solución: purga para operar → preparación inicial → dosis cortas automáticas ----
+const NBC=['A','B','C','pH'];
+function estadoBombas(e){const nu=e.calibracion?.nutri||{}, po=e.calibracion?.purgasOp||{};
+  return [0,1,2,3].map(k=>{const c=nu['Bomba'+(k+1)];return {k,cal:!!c,mlps:c?+c.mlPorSeg:0,purg:!!(c&&po['Bomba'+(k+1)]&&po['Bomba'+(k+1)]>=(c.t||0))}})}
+function purgarOp(k){$('cn_b').value=k;const i=ordenPrueba({tipo:'purga',bomba:k,seg:30});if(i)log(`Purga para operar: ${NB[k]}`,'estacion',i)}
+function confirmarPurgaOp(k){const i=$('csel').value;if(!i)return;db.ref('/estaciones/'+i+'/calibracion/purgasOp/Bomba'+(k+1)).set(Date.now());log(`${NB[k]} purgada para operar`,'estacion',i)}
+function valoresPrep(e){const p=e.programa||{}, sL=e.sensores?.Litros;
+  return {mlL:[p.mlA??2,p.mlB??1,p.mlC??1],mezcla:p.mezclaSeg??60,espera:p.esperaMin??10,corta:p.cortaPct??10,ini:p.iniPct??33.33,
+    rondas:Math.max(1,Math.round(p.prepRondas??2)),pausa:p.prepPausaMin??300,ref:p.tdsModo!=='rango',
+    litros:sL>5?Math.round(sL):(p.litrosTanque??200),tmin:p.tdsMin??750,tmax:p.tdsMax??900,phMin:p.phMin??5.5,phMax:p.phMax??6.2,phMl:p.phDosisMl??10}}
+function pintarPrep(){
+  const i=$('csel').value, e=ests[i]||{}, B=estadoBombas(e), v=valoresPrep(e), d=e.estado?.dosif;
+  const todasCal=B.every(b=>b.cal), abcOk=B.slice(0,3).every(b=>b.cal&&b.purg);
+  // 1) estado de cada bomba
+  $('prBombas').innerHTML=B.map(b=>`<div class="pill"><b>${NB[b.k]}</b> ${b.cal?`<span class="tag ok">${b.mlps.toFixed(2)} mL/s</span>`:'<span class="tag warn">sin calibrar</span>'} ${b.cal?(b.purg?'<span class="tag ok">purgada</span>':'<span class="tag wait">falta purgar</span>'):''}</div>`).join('');
+  // 2) aviso para purgar cuando ya se calibraron todas
+  const cb=e.estado?.calibBomba, falta=B.filter(b=>b.cal&&!b.purg);
+  $('prPurga').innerHTML=(todasCal&&falta.length)?`<div class="aviso"><b>✅ Las 4 bombas están calibradas. ¿Deseas purgarlas para operar?</b>
+    <p class="mut" style="margin:4px 0 8px">Pon cada manguera en su salida definitiva al tanque. Toca Purgar, detén apenas salga líquido continuo y confirma. Lo que cae al tanque en la purga es muy poco.</p>
+    ${falta.map(b=>{const vivo=cb&&cb.bomba===b.k&&cb.fase==='purgando';return `<div class="row" style="align-items:center;margin:4px 0"><span style="min-width:110px">${NB[b.k]}</span>
+      ${vivo?`<button class="red" onclick="detenerPrueba()">Detener purga</button>`:`<button class="sec" onclick="purgarOp(${b.k})">Purgar</button>`}
+      <button onclick="confirmarPurgaOp(${b.k})">Ya está purgada</button></div>`}).join('')}</div>`
+    :(!todasCal?'<p class="mut">Primero calibra las 4 bombas arriba (purga + medición). Después te pedirá purgarlas para operar.</p>':'');
+  // 3) cálculo de la preparación inicial
+  const L=parseFloat($('pr_l').value)||v.litros, pct=parseFloat($('pr_p').value)||v.ini;
+  if(!$('pr_l').dataset.tocado)$('pr_l').value=v.litros; if(!$('pr_p').dataset.tocado)$('pr_p').value=v.ini;
+  const R=v.rondas, ml=v.mlL.map(x=>x*L*pct/100), mlR=ml.map(m=>m/R), seg=mlR.map((m,k)=>B[k].mlps?m/B[k].mlps:null);
+  const tRonda=seg.every(x=>x!==null)?seg.reduce((a,x)=>a+x,0)+3*v.mezcla+15:null;
+  $('prTabla').innerHTML=`<table class="tb"><tr><th>Nutriente</th><th class="n">Etiqueta (dosis completa)</th><th class="n">Total a echar (${pct} %)</th><th class="n">Por ronda (${R})</th><th class="n">Bomba por ronda</th></tr>`
+    +[0,1,2].map(k=>`<tr><td>${NB[k]}</td><td class="n">${v.mlL[k]} mL/L = ${(v.mlL[k]*L).toFixed(0)} mL</td><td class="n">${ml[k].toFixed(1)} mL</td><td class="n"><b>${mlR[k].toFixed(1)} mL</b></td><td class="n">${seg[k]!==null?durTxt(seg[k]):'calibrar'}</td></tr>`).join('')
+    +`</table><p class="mut">${Array.from({length:R},(_,r)=>`<b>Ronda ${r+1}</b>: circula 15 s → A → ${v.mezcla} s → B → ${v.mezcla} s → C → ${v.mezcla} s${tRonda?` (≈ ${durTxt(tRonda)})`:''}`).join(` → <b>pausa ${(v.pausa/60).toFixed(1)} h</b> desde el último nutriente → `)}.
+      Al terminar espera ${v.espera} min y ${v.ref?'guarda el TDS medido como referencia para mantenerlo':'completa hasta el rango con dosis cortas'}. Si se va la luz en la pausa, al volver sigue contando lo que faltaba.</p>`;
+  const enCurso=d&&(d.prepEstado==='pausa'||d.prepEstado==='ronda');
+  $('pr_go').disabled=!abcOk||enCurso;$('pr_go').style.opacity=(abcOk&&!enCurso)?1:.45;
+  // 4) progreso en vivo
+  let h='';
+  if(d&&d.fase&&d.fase!=='nada'){const T={circulacion:'Esperando circulación del tanque',dosis:`Dosificando ${NBC[d.bomba]??''}`,mezcla:'Mezclando'}[d.fase]||d.fase;
+    h=`<span class="tag wait">${d.tipo==='preparacion'?`Preparación · ronda ${d.ronda}/${d.rondas}`:d.tipo==='ph'?'Dosis corta de pH':'Dosis corta de nutrientes'} · paso ${d.paso}/${d.total}</span>
+      <p class="mut" style="margin:6px 0">${T}: ${esc(d.msg||'')}${d.restante>0?` · quedan ~${Math.ceil(d.restante)} s`:''}</p><div class="bar"><i style="width:${Math.min(100,((d.paso-1)+(d.fase==='mezcla'?1:d.fase==='dosis'?.5:0))/d.total*100)}%"></i></div>`}
+  if(d&&d.prepEstado==='pausa'){const m=+d.pausaRestMin||0;
+    h+=`<span class="tag wait">Pausa entre rondas · ronda ${d.ronda}/${d.rondas} lista</span><p class="mut" style="margin:6px 0">La ronda ${d.ronda+1} empieza en <b>${Math.floor(m/60)} h ${Math.round(m%60)} min</b>. Mientras tanto la estación sigue circulando y corrige el pH; no echa nutrientes extra.</p><div class="bar"><i style="width:${Math.max(0,100-m/v.pausa*100)}%"></i></div>`}
+  else if(!h&&d?.msg)h=`<p class="mut">Última dosificación: ${esc(d.msg)}</p>`;
+  $('prVivo').innerHTML=h;
+  // 5) qué hace después (dosis cortas automáticas)
+  const sum=v.mlL.reduce((a,x)=>a+x,0), k=d?.kTds;
+  const ref=d?.tdsRef>0?+d.tdsRef:null;
+  $('prAuto').innerHTML=(v.ref
+     ?`Después de la preparación, en automático mantiene el TDS que ella dejó${ref?` (<b>${ref.toFixed(0)} ppm</b> = CE ${(ref/500).toFixed(2)} mS/cm)`:' (se mide al terminar)'}: si baja más de 10 % echa una dosis corta A→B→C de hasta <b>${(sum*L*v.corta/100).toFixed(0)} mL</b> en total, con ${v.mezcla} s entre cada una.`
+     :`Después de la preparación, en automático: si el TDS baja de <b>${v.tmin} ppm</b> (CE ${(v.tmin/500).toFixed(2)} mS/cm) echa una dosis corta A→B→C de hasta <b>${(sum*L*v.corta/100).toFixed(0)} mL</b> en total, con ${v.mezcla} s entre cada una, hasta llegar a ${((v.tmin+v.tmax)/2).toFixed(0)} ppm.`)
+    +` Si el tanque se renueva (TDS menor a la mitad del objetivo) repite la preparación por rondas sola.`+` Si el pH pasa de <b>${v.phMax}</b> echa ${v.phMl} mL de regulador diluido (para 200 L, ajustado al volumen) hasta llegar a ${((v.phMin+v.phMax)/2).toFixed(2)}. Entre cada corrección espera ${v.espera} min para medir con el agua mezclada.`
+    +(k?`<br>Respuesta del TDS: <b>${(+k).toFixed(0)} ppm por cada mL/L</b> de mezcla ${d.kAprendido?'(aprendido por la estación)':'(estimado; se aprende con la primera dosis)'} · factor de pH ×${(+d.phFactor||1).toFixed(2)}.`:'');
+}
+function iniciarPrep(){const i=$('csel').value;if(!i)return;
+  const L=parseFloat($('pr_l').value), pct=parseFloat($('pr_p').value);
+  if(!(L>0&&pct>0)){alert('Revisa los litros y el porcentaje.');return}
+  if(!confirm(`Se prepararán ${L} L al ${pct} % de la etiqueta. El tanque debe tener el agua y la bomba del tanque debe circular. ¿Iniciar?`))return;
+  db.ref('/estaciones/'+i+'/calibracion/preparar').set({ver:Date.now(),orden:'iniciar',litros:L,pct});
+  log(`Preparación inicial: ${L} L al ${pct} %`,'estacion',i)}
+function cancelarPrep(){const i=$('csel').value;if(!i)return;
+  db.ref('/estaciones/'+i+'/calibracion/preparar').set({ver:Date.now(),orden:'cancelar'});log('Preparación cancelada','estacion',i)}
 function borrarMedidas(){const i=$('csel').value, b=+$('cn_b').value;
   if(confirm(`¿Borrar la calibración de ${NB[b]}?`)){db.ref('/estaciones/'+i+'/calibracion/nutri/Bomba'+(b+1)).remove();log(`Calibración de ${NB[b]} borrada`,'estacion',i)}}
 setInterval(()=>{if(rol==='admin'&&tabAct==='calibracion')pintarCalB()},1000);
